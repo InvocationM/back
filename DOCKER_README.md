@@ -112,3 +112,6 @@ docker exec -it tower-game-mysql bash
 # 进入 Redis 容器
 docker exec -it tower-game-redis sh
 ```
+
+application-docker.yml 只在「应用在 Docker 里跑、且启用了 SPRING_PROFILES_ACTIVE=docker」的时候用，
+也就是用完整 docker-compose.full（含 app）部署时。
