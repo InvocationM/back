@@ -1,0 +1,13 @@
+# .dockerignore
+target/
+.git/
+.gitignore
+.idea/
+*.iml
+logs/
+*.log
+README.md
+docker-compose.yml
+docker-compose.full.yml
+MAPSTRUCT_USAGE.md
+.DS_Store
