@@ -1,8 +1,8 @@
+# 测试环境配置（本地 Compose MySQL/Redis，使用 Docker 服务名）
 spring:
   application:
     name: tower
-  
-  # 数据源配置（使用 Docker 服务名）
+
   datasource:
     type: com.zaxxer.hikari.HikariDataSource
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -15,8 +15,7 @@ spring:
       connection-timeout: 30000
       idle-timeout: 600000
       max-lifetime: 1800000
-  
-  # Redis配置（使用 Docker 服务名）
+
   data:
     redis:
       host: redis
@@ -31,18 +30,15 @@ spring:
           min-idle: 0
           max-wait: -1ms
 
-# 服务器配置
 server:
   port: 8080
   servlet:
     context-path: /
 
-# WebSocket配置
 websocket:
   path: /ws
   allowed-origins: "*"
 
-# MyBatis Plus配置
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
   type-aliases-package: com.tower.game.model.entity
@@ -58,7 +54,6 @@ mybatis-plus:
     map-underscore-to-camel-case: true
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
 
-# 日志配置
 logging:
   level:
     root: INFO

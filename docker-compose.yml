@@ -39,4 +39,5 @@ volumes:
 
 networks:
   tower-network:
+    name: tower-network
     driver: bridge

@@ -1,0 +1,31 @@
+# 测试环境：仅运行应用，连接已由 docker-compose up 启动的 MySQL/Redis
+# 使用方式：先执行 docker-compose up -d，再执行 docker-compose -f docker-compose.test.yml up -d
+
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tower-game-app
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=test
+    networks:
+      - tower-network
+    volumes:
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+networks:
+  tower-network:
+    external: true
+    name: tower-network

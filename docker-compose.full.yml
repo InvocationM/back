@@ -52,7 +52,7 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_PROFILES_ACTIVE=test
     depends_on:
       mysql:
         condition: service_healthy
@@ -75,4 +75,5 @@ volumes:
 
 networks:
   tower-network:
+    name: tower-network
     driver: bridge
