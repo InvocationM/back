@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: tower-game-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root123456
+      MYSQL_DATABASE: tower_game
+      MYSQL_USER: tower_user
+      MYSQL_PASSWORD: tower_pass
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    command: --default-authentication-plugin=mysql_native_password
+    networks:
+      - tower-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: tower-game-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - tower-network
+
+volumes:
+  mysql_data:
+  redis_data:
+
+networks:
+  tower-network:
+    driver: bridge
