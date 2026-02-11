@@ -27,7 +27,6 @@ public interface PlayerMapStructMapper {
      * Player 实体转 PlayerDTO
      * 字段名相同会自动映射，密码字段会被忽略（因为 DTO 中没有）
      */
-    @Mapping(target = "password", ignore = true)
     PlayerDTO toDTO(Player player);
 
     /**
