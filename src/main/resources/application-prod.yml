@@ -1,0 +1,68 @@
+# 生产环境配置（云 MySQL / 云 Redis）
+# 连接信息待定：可通过环境变量 MYSQL_HOST、MYSQL_USER、MYSQL_PASSWORD、REDIS_HOST、REDIS_PASSWORD 注入，或直接改本文件
+spring:
+  application:
+    name: tower
+
+  datasource:
+    type: com.zaxxer.hikari.HikariDataSource
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:3306/tower_game?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USER:tower_user}
+    password: ${MYSQL_PASSWORD:}
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 20
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: 0
+      timeout: 3000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+          max-wait: -1ms
+
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+websocket:
+  path: /ws
+  allowed-origins: "*"
+
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  type-aliases-package: com.tower.game.model.entity
+  global-config:
+    db-config:
+      id-type: AUTO
+      field-strategy: NOT_NULL
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+    banner: false
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+logging:
+  level:
+    root: INFO
+    com.tower.game: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n"
+  file:
+    name: logs/tower-game-server.log
+    max-size: 10MB
+    max-history: 30
