@@ -16,10 +16,10 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/auth")
 public class AuthController {
 
-    @Value("${netty.server.port:9090}")
-    private int nettyPort;
+    @Value("${server.port:8080}")
+    private int serverPort;
 
-    @Value("${netty.server.host:localhost}")
+    @Value("${server.address:localhost}")
     private String serverAddress;
 
     /**
@@ -36,7 +36,7 @@ public class AuthController {
         
         // 临时实现
         String token = generateToken(request.getUsername());
-        String websocketUrl = String.format("ws://%s:%d", serverAddress, nettyPort);
+        String websocketUrl = String.format("ws://%s:%d/ws", serverAddress, serverPort);
         
         LoginResponse response = new LoginResponse(
             token,

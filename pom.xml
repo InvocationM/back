@@ -23,8 +23,6 @@
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-<!--        <netty.version>4.1.104</netty.version>-->
-        <netty.version>4.1.56.Final</netty.version>
     </properties>
 
     <dependencies>
@@ -46,11 +44,10 @@
             <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
 
-        <!-- Netty -->
+        <!-- Spring WebSocket -->
         <dependency>
-            <groupId>io.netty</groupId>
-            <artifactId>netty-all</artifactId>
-            <version>${netty.version}</version>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-websocket</artifactId>
         </dependency>
 
         <!-- MySQL Driver -->

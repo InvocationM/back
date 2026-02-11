@@ -2,12 +2,12 @@ package com.tower.game.server.session;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tower.game.common.enums.GameStatus;
-import io.netty.channel.Channel;
-import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
-import io.netty.handler.codec.http.websocketx.WebSocketFrame;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.socket.TextMessage;
+import org.springframework.web.socket.WebSocketSession;
 
+import java.io.IOException;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -22,16 +22,16 @@ public class PlayerSession {
     private String sessionId;
     private Long userId;
     private String username;
-    private Channel channel;
+    private WebSocketSession webSocketSession;
     private long loginTime;
     private long lastActiveTime;
     private GameStatus gameStatus;
 
-    public PlayerSession(Long userId, String username, Channel channel) {
+    public PlayerSession(Long userId, String username, WebSocketSession webSocketSession) {
         this.sessionId = generateSessionId();
         this.userId = userId;
         this.username = username;
-        this.channel = channel;
+        this.webSocketSession = webSocketSession;
         this.loginTime = System.currentTimeMillis();
         this.lastActiveTime = System.currentTimeMillis();
         this.gameStatus = GameStatus.IDLE;
@@ -48,20 +48,18 @@ public class PlayerSession {
      * 发送消息给客户端
      */
     public void sendMessage(Object message) {
-        if (channel != null && channel.isActive()) {
-            if (message instanceof WebSocketFrame) {
-                channel.writeAndFlush(message);
-            } else if (message instanceof String) {
-                // 如果是字符串，包装成TextWebSocketFrame
-                channel.writeAndFlush(new TextWebSocketFrame((String) message));
-            } else {
-                // 如果是Map或其他对象，转换为JSON
-                try {
-                    String json = objectMapper.writeValueAsString(message);
-                    channel.writeAndFlush(new TextWebSocketFrame(json));
-                } catch (Exception e) {
-                    log.error("发送消息失败", e);
+        if (webSocketSession != null && webSocketSession.isOpen()) {
+            try {
+                String json;
+                if (message instanceof String) {
+                    json = (String) message;
+                } else {
+                    // 如果是Map或其他对象，转换为JSON
+                    json = objectMapper.writeValueAsString(message);
                 }
+                webSocketSession.sendMessage(new TextMessage(json));
+            } catch (IOException e) {
+                log.error("发送消息失败: sessionId={}", sessionId, e);
             }
         }
     }
@@ -70,7 +68,7 @@ public class PlayerSession {
      * 检查连接是否活跃
      */
     public boolean isActive() {
-        return channel != null && channel.isActive();
+        return webSocketSession != null && webSocketSession.isOpen();
     }
 
     /**

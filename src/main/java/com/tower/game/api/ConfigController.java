@@ -18,8 +18,8 @@ import java.util.Map;
 @RequestMapping("/api/config")
 public class ConfigController {
 
-    @Value("${netty.server.port:9090}")
-    private int nettyPort;
+    @Value("${server.port:8080}")
+    private int serverPort;
 
     /**
      * 获取服务器列表
@@ -30,7 +30,7 @@ public class ConfigController {
         serverInfo.put("serverId", 1);
         serverInfo.put("serverName", "服务器1");
         serverInfo.put("status", "正常");
-        serverInfo.put("websocketPort", nettyPort);
+        serverInfo.put("websocketUrl", "ws://localhost:" + serverPort + "/ws");
         
         return ApiResponse.success(serverInfo);
     }

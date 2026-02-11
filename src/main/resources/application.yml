@@ -46,13 +46,10 @@ server:
   servlet:
     context-path: /
 
-# Netty服务器配置
-netty:
-  server:
-    host: localhost
-    port: 9090
-    boss-thread-count: 1
-    worker-thread-count: 4
+# WebSocket配置
+websocket:
+  path: /ws
+  allowed-origins: "*"
 
 # 日志配置
 logging:

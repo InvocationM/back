@@ -1,9 +1,10 @@
 package com.tower.game.server.session;
 
-import io.netty.channel.Channel;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.web.socket.WebSocketSession;
 
+import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -17,8 +18,8 @@ public class SessionManager {
     // 存储所有活跃的会话：sessionId -> PlayerSession
     private final Map<String, PlayerSession> sessions = new ConcurrentHashMap<>();
 
-    // Channel到Session的映射：Channel -> PlayerSession
-    private final Map<Channel, PlayerSession> channelToSession = new ConcurrentHashMap<>();
+    // WebSocketSession到Session的映射：WebSocketSession -> PlayerSession
+    private final Map<WebSocketSession, PlayerSession> sessionToPlayer = new ConcurrentHashMap<>();
 
     // 用户ID到Session的映射：userId -> PlayerSession（一个用户只能有一个活跃会话）
     private final Map<Long, PlayerSession> userIdToSession = new ConcurrentHashMap<>();
@@ -26,16 +27,16 @@ public class SessionManager {
     /**
      * 创建会话
      */
-    public PlayerSession createSession(Long userId, String username, Channel channel) {
+    public PlayerSession createSession(Long userId, String username, WebSocketSession webSocketSession) {
         // 如果用户已有会话，先关闭旧会话
         PlayerSession oldSession = userIdToSession.get(userId);
         if (oldSession != null) {
-            removeSession(oldSession.getChannel());
+            removeSession(oldSession.getWebSocketSession());
         }
 
-        PlayerSession session = new PlayerSession(userId, username, channel);
+        PlayerSession session = new PlayerSession(userId, username, webSocketSession);
         sessions.put(session.getSessionId(), session);
-        channelToSession.put(channel, session);
+        sessionToPlayer.put(webSocketSession, session);
         userIdToSession.put(userId, session);
 
         log.info("创建会话: sessionId={}, userId={}, username={}", 
@@ -45,10 +46,10 @@ public class SessionManager {
     }
 
     /**
-     * 根据Channel获取会话
+     * 根据WebSocketSession获取会话
      */
-    public PlayerSession getSession(Channel channel) {
-        return channelToSession.get(channel);
+    public PlayerSession getSession(WebSocketSession webSocketSession) {
+        return sessionToPlayer.get(webSocketSession);
     }
 
     /**
@@ -68,14 +69,21 @@ public class SessionManager {
     /**
      * 移除会话
      */
-    public void removeSession(Channel channel) {
-        PlayerSession session = channelToSession.remove(channel);
+    public void removeSession(WebSocketSession webSocketSession) {
+        PlayerSession session = sessionToPlayer.remove(webSocketSession);
         if (session != null) {
             sessions.remove(session.getSessionId());
             userIdToSession.remove(session.getUserId());
             log.info("移除会话: sessionId={}, userId={}", 
                 session.getSessionId(), session.getUserId());
         }
+    }
+
+    /**
+     * 获取所有会话
+     */
+    public Collection<PlayerSession> getAllSessions() {
+        return sessions.values();
     }
 
     /**
