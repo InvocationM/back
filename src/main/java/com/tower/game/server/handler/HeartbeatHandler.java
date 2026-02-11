@@ -25,7 +25,10 @@ public class HeartbeatHandler implements MessageHandler {
         // 回复心跳
         Map<String, Object> response = new HashMap<>();
         response.put("type", MessageType.HEARTBEAT);
+        response.put("code", 200);
         response.put("timestamp", System.currentTimeMillis());
+        response.put("message", "pong");
+        
         session.sendMessage(response);
     }
 

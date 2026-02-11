@@ -1,16 +1,22 @@
 package com.tower.game.server.session;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tower.game.common.enums.GameStatus;
 import io.netty.channel.Channel;
+import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
+import io.netty.handler.codec.http.websocketx.WebSocketFrame;
 import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * 玩家会话
  */
+@Slf4j
 @Data
 public class PlayerSession {
+    private static final ObjectMapper objectMapper = new ObjectMapper();
     private static final AtomicLong SESSION_ID_GENERATOR = new AtomicLong(1);
 
     private String sessionId;
@@ -43,7 +49,20 @@ public class PlayerSession {
      */
     public void sendMessage(Object message) {
         if (channel != null && channel.isActive()) {
-            channel.writeAndFlush(message);
+            if (message instanceof WebSocketFrame) {
+                channel.writeAndFlush(message);
+            } else if (message instanceof String) {
+                // 如果是字符串，包装成TextWebSocketFrame
+                channel.writeAndFlush(new TextWebSocketFrame((String) message));
+            } else {
+                // 如果是Map或其他对象，转换为JSON
+                try {
+                    String json = objectMapper.writeValueAsString(message);
+                    channel.writeAndFlush(new TextWebSocketFrame(json));
+                } catch (Exception e) {
+                    log.error("发送消息失败", e);
+                }
+            }
         }
     }
 

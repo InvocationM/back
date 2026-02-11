@@ -6,11 +6,11 @@ import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
-import io.netty.handler.codec.string.StringDecoder;
-import io.netty.handler.codec.string.StringEncoder;
+import io.netty.handler.codec.http.HttpObjectAggregator;
+import io.netty.handler.codec.http.HttpServerCodec;
+import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
-import io.netty.util.CharsetUtil;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
@@ -57,9 +57,12 @@ public class NettyServer {
                     protected void initChannel(SocketChannel ch) {
                         ChannelPipeline pipeline = ch.pipeline();
                         
-                        // 添加编解码器（这里使用String编解码器，实际应该使用自定义协议）
-                        pipeline.addLast(new StringDecoder(CharsetUtil.UTF_8));
-                        pipeline.addLast(new StringEncoder(CharsetUtil.UTF_8));
+                        // HTTP编解码器
+                        pipeline.addLast(new HttpServerCodec());
+                        // HTTP消息聚合器
+                        pipeline.addLast(new HttpObjectAggregator(65536));
+                        // WebSocket协议处理器，路径为 /ws
+                        pipeline.addLast(new WebSocketServerProtocolHandler("/ws"));
                         
                         // 添加业务处理器
                         pipeline.addLast(gameMessageHandler);
@@ -70,7 +73,7 @@ public class NettyServer {
         future.addListener((ChannelFutureListener) f -> {
             if (f.isSuccess()) {
                 channel = f.channel();
-                log.info("Netty服务器启动成功，端口: {}", port);
+                log.info("Netty WebSocket服务器启动成功，端口: {}, 路径: /ws", port);
             } else {
                 log.error("Netty服务器启动失败", f.cause());
             }
