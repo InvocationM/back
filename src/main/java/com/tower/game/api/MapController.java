@@ -6,8 +6,8 @@ import com.tower.game.model.entity.GameMap;
 import com.tower.game.service.GameMapService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -26,7 +26,7 @@ public class MapController {
     /**
      * 根据 mapId 查询地图，返回整份前端 JSON（mapId、width、height、cells）
      */
-    @GetMapping("/{mapId}")
+    @PostMapping("/{mapId}")
     public ApiResponse<?> getByMapId(@PathVariable Integer mapId) {
         GameMap map = gameMapService.getByMapId(mapId);
         if (map == null) {
