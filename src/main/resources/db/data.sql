@@ -79,3 +79,11 @@ VALUES (1, '绿泡泡', 'NPC11', 5, 1, 20, 43, 26, 43, 9, 0, '1_1-1_10000;4_1-1_
         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
        (33, '黑暗巫师', 'NPC331', 320, 33, 1600, 76, 58, 76, 40, 0, '1_1-1_10000;4_1-1_5000;5_1-1_5000;6_1-1_2000;',
         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+
+
+-- 物品表插入数据
+INSERT INTO `item` (`id`, `name`, `icon`, `type`, `sub_type`, `attack`, `defence`, `create_time`, `update_time`)
+VALUES (1, '测试装备', '0', 1, 0, 5, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+       (2, '测试宝石', '1', 2, 0, 0, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+       (3, '测试钥匙', '2', 3, 0, 0, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
