@@ -87,3 +87,11 @@ INSERT INTO `item` (`id`, `name`, `icon`, `type`, `sub_type`, `attack`, `defence
 VALUES (1, '测试装备', '0', 1, 0, 5, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
        (2, '测试宝石', '1', 2, 0, 0, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
        (3, '测试钥匙', '2', 3, 0, 0, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+
+-- 宝箱表插入数据
+INSERT INTO `chest` (`id`, `name`, `icon`, `rewards`, `create_time`, `update_time`) VALUES
+    (1, '普通宝箱', '', '1_1-1_10000;2_1-2_5000', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+
+
