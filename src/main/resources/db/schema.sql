@@ -13,3 +13,14 @@ CREATE TABLE IF NOT EXISTS `player` (
     UNIQUE KEY `uk_username` (`username`),
     KEY `idx_level` (`level`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='玩家表';
+
+-- 地图表（单表，整份 JSON 存 data）
+CREATE TABLE IF NOT EXISTS `game_map` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+    `map_id` INT NOT NULL COMMENT '地图ID（业务，即前端 mapId）',
+    `data` JSON NOT NULL COMMENT '整份地图JSON，含 mapId、width、height、cells',
+    `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_map_id` (`map_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='地图表';
