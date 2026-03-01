@@ -35,9 +35,6 @@ server:
   servlet:
     context-path: /
 
-websocket:
-  path: /ws
-  allowed-origins: "*"
 
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml

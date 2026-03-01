@@ -37,10 +37,7 @@ server:
   servlet:
     context-path: /tower
 
-# WebSocket配置
-websocket:
-  path: /ws
-  allowed-origins: "*"
+
 
 # MyBatis Plus配置
 mybatis-plus:

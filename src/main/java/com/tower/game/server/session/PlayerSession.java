@@ -27,6 +27,13 @@ public class PlayerSession {
     private long lastActiveTime;
     private GameStatus gameStatus;
 
+    /** 当前地图 ID，未进图为 null */
+    private Integer mapId;
+    /** 当前格子 X，未进图为 -1 */
+    private int cellX = -1;
+    /** 当前格子 Y，未进图为 -1 */
+    private int cellY = -1;
+
     public PlayerSession(Long userId, String username, WebSocketSession webSocketSession) {
         this.sessionId = generateSessionId();
         this.userId = userId;
@@ -76,5 +83,12 @@ public class PlayerSession {
      */
     public void updateActiveTime() {
         this.lastActiveTime = System.currentTimeMillis();
+    }
+
+    /**
+     * 是否已设置地图位置（已进图）
+     */
+    public boolean hasPosition() {
+        return cellX >= 0 && cellY >= 0;
     }
 }

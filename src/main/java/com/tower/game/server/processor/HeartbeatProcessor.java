@@ -1,4 +1,4 @@
-package com.tower.game.server.handler;
+package com.tower.game.server.processor;
 
 import com.tower.game.common.constant.MessageType;
 import com.tower.game.server.session.PlayerSession;
@@ -13,22 +13,22 @@ import java.util.Map;
  */
 @Slf4j
 @Component
-public class HeartbeatHandler implements MessageHandler {
+public class HeartbeatProcessor implements MessageProcessor {
 
     @Override
     public void handle(PlayerSession session, Object message) {
         log.debug("收到心跳消息: sessionId={}", session.getSessionId());
-        
+
         // 更新活跃时间
         session.updateActiveTime();
-        
+
         // 回复心跳
         Map<String, Object> response = new HashMap<>();
         response.put("type", MessageType.HEARTBEAT);
         response.put("code", 200);
         response.put("timestamp", System.currentTimeMillis());
         response.put("message", "pong");
-        
+
         session.sendMessage(response);
     }
 

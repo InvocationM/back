@@ -1,11 +1,11 @@
-package com.tower.game.server.handler;
+package com.tower.game.server.processor;
 
 import com.tower.game.server.session.PlayerSession;
 
 /**
- * 消息处理器接口
+ * 消息处理器接口（按消息类型处理的业务处理器）
  */
-public interface MessageHandler {
+public interface MessageProcessor {
     /**
      * 处理消息
      */

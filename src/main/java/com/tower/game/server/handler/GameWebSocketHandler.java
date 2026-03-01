@@ -2,6 +2,8 @@ package com.tower.game.server.handler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tower.game.common.constant.MessageType;
+import com.tower.game.server.processor.MessageProcessor;
+import com.tower.game.server.processor.MessageProcessorRegistry;
 import com.tower.game.server.session.PlayerSession;
 import com.tower.game.server.session.SessionManager;
 import lombok.extern.slf4j.Slf4j;
@@ -32,7 +34,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     private SessionManager sessionManager;
 
     @Autowired
-    private MessageHandlerRegistry handlerRegistry;
+    private MessageProcessorRegistry processorRegistry;
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
@@ -67,13 +69,13 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             Map<String, Object> msg = objectMapper.readValue(text, Map.class);
             int messageType = (Integer) msg.getOrDefault("type", MessageType.HEARTBEAT);
             
-            // 从注册表获取对应的处理器
-            MessageHandler handler = handlerRegistry.getHandler(messageType);
-            
-            if (handler != null) {
-                handler.handle(playerSession, msg);
+            // 从注册表获取对应的消息处理器
+            MessageProcessor processor = processorRegistry.getProcessor(messageType);
+
+            if (processor != null) {
+                processor.handle(playerSession, msg);
             } else {
-                log.warn("未找到消息处理器: messageType={}, sessionId={}", 
+                log.warn("未找到消息处理器: messageType={}, sessionId={}",
                     messageType, playerSession.getSessionId());
                 sendError(playerSession, "未知的消息类型: " + messageType);
             }
