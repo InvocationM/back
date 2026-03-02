@@ -19,6 +19,16 @@
 - **客户端**：按步发 PLAYER_MOVE，收到 200 后再播动画；新点击直接替换目标；未连接 WebSocket 时回退为本地移动。
 - **第一版不做**：位置落库、ENTER_FLOOR、限频、stepId、失败回包带当前坐标、重连带位置、超时重试。
 
+### 用户上下文轻量重构（SessionState + PlayerSession）
+
+- **目标**：将会话状态与连接解耦，便于后续按需接入 Redis / 断线重连，当前仍为内存存储。
+- **实现**：
+  - 新增 **SessionState** DTO：可序列化字段 sessionId、userId、username、gameStatus、mapId、cellX、cellY、loginTime、lastActiveTime、hp、maxHp；供内存或后续 Redis 存储。
+  - **PlayerSession** 重构：内部持有一份 `SessionState`；对外保留原有 getter/setter（getCellX、setMapId 等）兼容现有 Processor；新增 `getState()`（返回状态快照）、`updateState(Consumer<SessionState>)`。
+  - **SessionManager**：保持内存 Map，create/remove 逻辑不变。
+  - **Processor**：无需改调用方式，仍通过 session 的 get/set 读写状态。
+- **扩展点**：若后续需要多实例或断线重连恢复状态，可增加 SessionRedisRepository，将状态的读写从内存改为 Redis，无需再改 Processor/Handler。
+
 ---
 
 ## 待办（可选）
