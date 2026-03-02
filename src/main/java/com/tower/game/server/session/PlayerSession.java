@@ -37,6 +37,15 @@ public class PlayerSession {
                 .lastActiveTime(now)
                 .hp(100)
                 .maxHp(100)
+                .attack(10)
+                .defence(5)
+                .dodge(0)
+                .accurate(0)
+                .crit(0)
+                .doublehit(0)
+                .reflect(0)
+                .name("玩家")
+                .icon("PLAYER1")
                 .build();
         this.webSocketSession = webSocketSession;
     }
@@ -58,7 +67,17 @@ public class PlayerSession {
     public long getLastActiveTime() { return state.getLastActiveTime(); }
     public int getHp() { return state.getHp(); }
     public int getMaxHp() { return state.getMaxHp(); }
+    public int getAttack() { return state.getAttack(); }
+    public int getDefence() { return state.getDefence(); }
+    public int getDodge() { return state.getDodge(); }
+    public int getAccurate() { return state.getAccurate(); }
+    public int getCrit() { return state.getCrit(); }
+    public int getDoublehit() { return state.getDoublehit(); }
+    public int getReflect() { return state.getReflect(); }
+    public String getCombatName() { return state.getName(); }
+    public String getCombatIcon() { return state.getIcon(); }
 
+    public void setHp(int hp) { state.setHp(hp); }
     public void setGameStatus(GameStatus gameStatus) { state.setGameStatus(gameStatus); }
     public void setMapId(Integer mapId) { state.setMapId(mapId); }
     public void setCellX(int cellX) { state.setCellX(cellX); }
@@ -82,6 +101,15 @@ public class PlayerSession {
                 .lastActiveTime(state.getLastActiveTime())
                 .hp(state.getHp())
                 .maxHp(state.getMaxHp())
+                .attack(state.getAttack())
+                .defence(state.getDefence())
+                .dodge(state.getDodge())
+                .accurate(state.getAccurate())
+                .crit(state.getCrit())
+                .doublehit(state.getDoublehit())
+                .reflect(state.getReflect())
+                .name(state.getName())
+                .icon(state.getIcon())
                 .build();
     }
 

@@ -34,10 +34,21 @@ public class SessionState implements Serializable {
     private long loginTime;
     private long lastActiveTime;
 
-    /** 当前血量（可选，玩法需要时使用） */
+    /** 当前血量 */
     private int hp;
-    /** 最大血量（可选） */
+    /** 最大血量 */
     private int maxHp;
+
+    /** 战斗属性（方案 B 默认值，与境界表一致时 10:1 为百分比） */
+    private int attack;
+    private int defence;
+    private int dodge;
+    private int accurate;
+    private int crit;
+    private int doublehit;
+    private int reflect;
+    private String name;
+    private String icon;
 
     /**
      * 是否已设置地图位置（已进图）

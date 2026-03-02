@@ -29,6 +29,19 @@
   - **Processor**：无需改调用方式，仍通过 session 的 get/set 读写状态。
 - **扩展点**：若后续需要多实例或断线重连恢复状态，可增加 SessionRedisRepository，将状态的读写从内存改为 Redis，无需再改 Processor/Handler。
 
+### 战斗逻辑后端化（方案 B + 掉落后端随机）
+
+- **目标**：战斗计算与掉落随机均在后端完成，Unity 仅发 BATTLE_START、收 BATTLE_RESULT 并做表现。
+- **实现**：
+  - **SessionState**：增加战斗属性 attack、defence、dodge、accurate、crit、doublehit、reflect、name、icon；建会话时用默认值填充（方案 B，无境界表）。
+  - **CombatantSnapshot / BattleResultDto / DropItemDto**：`common.dto.battle` 包；战斗入参与结果结构。
+  - **MonsterService.getById**：单条怪物实时查库。
+  - **BattleEngineService**：命中/伤害/暴击/反伤/连击、50 回合上限，与 Unity BattleEngine 一致；`buildPlayerSnapshot(SessionState)`、`buildMonsterSnapshot(Monster)`、`run(...)`。
+  - **DropRollService**：解析 Monster.item 字符串（道具id_数量范围_万分比），按万分比 roll，返回 `List<DropItemDto>`。
+  - **BattleStartProcessor**：处理 type=3001（monsterId、cellX、cellY）；从 session 取玩家快照、从 MonsterService 取怪物；执行战斗；胜利时调用 DropRollService 写入 result.drops；回包 3003 含 result、cellX、cellY、logs。
+- **消息**：C→S `{ "type": 3001, "monsterId", "cellX", "cellY" }`；S→C `{ "type": 3003, "code", "result": { "type", "playerCurrentHp", "totalRounds", "drops" }, "cellX", "cellY", "logs" }`。
+- **Unity 端**：需改为发 WS 3001 触发战斗，订阅 3003 用 result.drops + cellX/cellY 做掉落表现，不再本地 ParseAndRoll。
+
 ---
 
 ## 待办（可选）

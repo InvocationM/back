@@ -26,4 +26,13 @@ public class MonsterService {
         }
         return monsterMapper.selectBatchIds(ids);
     }
+
+    /**
+     * 根据 id 查询单条怪物（实时查库）
+     */
+    public Monster getById(Integer id) {
+        if (id == null) return null;
+        List<Monster> list = listByIds(Collections.singletonList(id));
+        return list.isEmpty() ? null : list.get(0);
+    }
 }

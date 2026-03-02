@@ -25,7 +25,9 @@ public class PlayerMoveProcessor implements MessageProcessor {
     @Override
     public void handle(PlayerSession session, Object message) {
 
-        log.info("session :{}, message", message.toString());
+        int currentCellX = session.getState().getCellX();
+        int currentCellY = session.getState().getCellY();
+        log.info(" currentCellX:{} Y:{} ,session :{}", currentCellX, currentCellY, message.toString());
 
         if (!(message instanceof Map)) {
             sendFail(session, "消息格式错误");
