@@ -56,6 +56,17 @@ public class PlayerMoveProcessor implements MessageProcessor {
         Integer sessionMapId = session.getMapId();
         if (sessionMapId == null) sessionMapId = DEFAULT_MAP_ID;
 
+        // 同格移动（双点/重试等）：直接返回成功
+        if (toX == fromX && toY == fromY) {
+            Map<String, Object> ok = new HashMap<>();
+            ok.put("type", MessageType.PLAYER_MOVE);
+            ok.put("code", 200);
+            ok.put("cellX", toX);
+            ok.put("cellY", toY);
+            session.sendMessage(ok);
+            log.debug("玩家同格移动: userId={} 已在 ({},{})", session.getUserId(), toX, toY);
+            return;
+        }
         if (Math.abs(toX - fromX) + Math.abs(toY - fromY) != 1) {
             sendFail(session, "目标格与当前位置不相邻");
             return;
