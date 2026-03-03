@@ -3,6 +3,7 @@ package com.tower.game.api;
 import com.tower.game.common.dto.LoginRequest;
 import com.tower.game.common.dto.LoginResponse;
 import com.tower.game.common.response.ApiResponse;
+import com.tower.game.common.annotation.NoLog;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -25,6 +26,7 @@ public class AuthController {
     /**
      * 用户登录
      */
+    @NoLog
     @PostMapping("/login")
     public ApiResponse<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         log.info("用户登录请求: {}", request.getUsername());
@@ -51,6 +53,7 @@ public class AuthController {
     /**
      * 用户注册
      */
+    @NoLog
     @PostMapping("/register")
     public ApiResponse<String> register(@Valid @RequestBody LoginRequest request) {
         log.info("用户注册请求: {}", request.getUsername());
