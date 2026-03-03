@@ -1,0 +1,129 @@
+package com.tower.game.service;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.List;
+import java.util.PriorityQueue;
+import java.util.Set;
+
+/**
+ * 服务端寻路：A* 算法，基于 MapWalkableService 可通行性。
+ * 目标格为互动格（怪物/宝箱）时，寻路到其相邻一格可通行格。
+ */
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class MapPathService {
+
+    private static final int EVENT_TYPE_MONSTER = 5;
+    private static final int EVENT_TYPE_CHEST = 6;
+    private static final int[][] NEIGHBORS = {{0, 1}, {1, 0}, {0, -1}, {-1, 0}};
+
+    private final MapWalkableService mapWalkableService;
+
+    /**
+     * 从 (fromX, fromY) 寻路到 (toX, toY)。
+     * 若目标格为怪物/宝箱，则终点改为该格相邻的一格可通行格。
+     *
+     * @return 路径格子列表（不含起点，含终点），无法到达则返回空列表
+     */
+    public List<int[]> findPath(Integer mapId, int fromX, int fromY, int toX, int toY) {
+        if (mapId == null) return List.of();
+        int[] size = mapWalkableService.getMapSize(mapId);
+        int width = size[0], height = size[1];
+        if (fromX < 0 || fromX >= width || fromY < 0 || fromY >= height) return List.of();
+        if (toX < 0 || toX >= width || toY < 0 || toY >= height) return List.of();
+        if (!mapWalkableService.isWalkable(mapId, fromX, fromY)) return List.of();
+
+        int endX = toX, endY = toY;
+        int[] cellEvent = mapWalkableService.getCellEvent(mapId, toX, toY);
+        if (cellEvent != null) {
+            int eventType = cellEvent[0];
+            if (eventType == EVENT_TYPE_MONSTER || eventType == EVENT_TYPE_CHEST) {
+                int[] adj = getAdjacentWalkable(mapId, toX, toY);
+                if (adj == null) return List.of();
+                endX = adj[0];
+                endY = adj[1];
+            } else if (!mapWalkableService.isWalkable(mapId, toX, toY)) {
+                return List.of();
+            }
+        } else {
+            if (!mapWalkableService.isWalkable(mapId, toX, toY)) return List.of();
+        }
+
+        if (fromX == endX && fromY == endY) return List.of();
+
+        return aStar(mapId, width, height, fromX, fromY, endX, endY);
+    }
+
+    private int[] getAdjacentWalkable(Integer mapId, int x, int y) {
+        for (int[] d : NEIGHBORS) {
+            int nx = x + d[0], ny = y + d[1];
+            if (mapWalkableService.isWalkable(mapId, nx, ny))
+                return new int[]{nx, ny};
+        }
+        return null;
+    }
+
+    private List<int[]> aStar(Integer mapId, int width, int height, int fromX, int fromY, int endX, int endY) {
+        PriorityQueue<Node> open = new PriorityQueue<>(Comparator.comparingDouble(n -> n.f));
+        Set<Long> closed = new HashSet<>();
+        open.add(new Node(fromX, fromY, 0, manhattan(fromX, fromY, endX, endY), null));
+
+        while (!open.isEmpty()) {
+            Node cur = open.poll();
+            long key = key(cur.x, cur.y);
+            if (closed.contains(key)) continue;
+            closed.add(key);
+
+            if (cur.x == endX && cur.y == endY) {
+                List<int[]> path = new ArrayList<>();
+                for (Node n = cur; n != null; n = n.parent) path.add(new int[]{n.x, n.y});
+                path.remove(path.size() - 1); // 去掉起点（回溯顺序是终点→起点，去掉后为 终点→第一步）
+                Collections.reverse(path);  // 反转为 第一步→...→终点，供前端按序播动画
+                return path;
+            }
+
+            for (int[] d : NEIGHBORS) {
+                int nx = cur.x + d[0], ny = cur.y + d[1];
+                if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
+                if (!mapWalkableService.isWalkable(mapId, nx, ny)) continue;
+                if (closed.contains(key(nx, ny))) continue;
+
+                double g = cur.g + 1;
+                double h = manhattan(nx, ny, endX, endY);
+                open.add(new Node(nx, ny, g, h, cur));
+            }
+        }
+        return List.of();
+    }
+
+    private static double manhattan(int x1, int y1, int x2, int y2) {
+        return Math.abs(x1 - x2) + Math.abs(y1 - y2);
+    }
+
+    private static long key(int x, int y) {
+        return ((long) x << 32) | (y & 0xFFFFFFFFL);
+    }
+
+    private static class Node {
+        final int x, y;
+        final double g, h, f;
+        final Node parent;
+
+        Node(int x, int y, double g, double h, Node parent) {
+            this.x = x;
+            this.y = y;
+            this.g = g;
+            this.h = h;
+            this.f = g + h;
+            this.parent = parent;
+        }
+    }
+}

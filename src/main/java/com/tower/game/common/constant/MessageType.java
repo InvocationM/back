@@ -11,8 +11,10 @@ public class MessageType {
     public static final int LOGIN = 1001;
     public static final int LOGOUT = 1002;
     
-    // 玩家移动
+    // 玩家移动（单步，已由 MOVE_INTENT 替代）
     public static final int PLAYER_MOVE = 2001;
+    // 移动意图：前端发点击格子，后端返回路径或交互结果
+    public static final int MOVE_INTENT = 2002;
     
     // 战斗相关
     public static final int BATTLE_START = 3001;

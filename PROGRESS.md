@@ -12,12 +12,16 @@
 - **接口**：`POST /api/map/{mapId}` 返回的 `data` 中，每个格子的 `events` 数组至多一个元素。
 - **客户端**：Unity MapLoader 不再调用 `SelectEventByWeight`，直接使用服务端下发的唯一事件（`events[0]`），并移除了客户端权重选择相关代码。
 
-### 玩家移动前后端分离（第一版最小闭环）
+### 玩家移动 — 意图协议 MOVE_INTENT（前端只播动画）
 
-- **范围说明**：见 [docs/玩家移动前后端分离_第一版范围.md](docs/玩家移动前后端分离_第一版范围.md)。
-- **服务端**：`PlayerSession` 增加 mapId、cellX、cellY；新增 `MapWalkableService`（isWalkable、findEntrance）；新增 `PlayerMoveHandler`（PLAYER_MOVE 一步校验，200/400）。首次移动无位置时用地图入口作当前格。
-- **客户端**：按步发 PLAYER_MOVE，收到 200 后再播动画；新点击直接替换目标；未连接 WebSocket 时回退为本地移动。
-- **第一版不做**：位置落库、ENTER_FLOOR、限频、stepId、失败回包带当前坐标、重连带位置、超时重试。
+- **原则**：前端不拥有位置，只拥有动画；仅发「点了哪个格子」，后端返回路径或交互结果。
+- **协议**：见 [docs/玩家移动_意图协议_MOVE_INTENT.md](docs/玩家移动_意图协议_MOVE_INTENT.md)。C→S：`type: 2002, targetX, targetY, mapId`；S→C：`action: move` 带 path，或 `battle`/`chest` 带参数，或 400。
+- **后端**：新增 `MapPathService`（A* 寻路）、`MoveIntentProcessor`（意图处理）；`MapWalkableService` 增加 getCellEvent、getMapSize。删除 `PlayerMoveProcessor`（原 PLAYER_MOVE 2001）。
+- **前端**：MapController 只发 MOVE_INTENT，按 action 播动画或触发战斗/开箱；删除 Pathfinder、_pendingPath、_waitingForAck 等越权逻辑。
+
+### 玩家移动前后端分离（第一版，已由 MOVE_INTENT 替代）
+
+- 原 PLAYER_MOVE(2001) 按步校验已废弃，见上条。
 
 ### 用户上下文轻量重构（SessionState + PlayerSession）
 
