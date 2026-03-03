@@ -39,39 +39,38 @@ public class MapPathService {
         int width = size[0], height = size[1];
         if (fromX < 0 || fromX >= width || fromY < 0 || fromY >= height) return List.of();
         if (toX < 0 || toX >= width || toY < 0 || toY >= height) return List.of();
-        if (!mapWalkableService.isWalkable(mapId, fromX, fromY)) return List.of();
+        if (!mapWalkableService.isWalkableForPathfinding(mapId, fromX, fromY)) return List.of();
 
         int endX = toX, endY = toY;
+        boolean endIsEvent = false;
         int[] cellEvent = mapWalkableService.getCellEvent(mapId, toX, toY);
         if (cellEvent != null) {
             int eventType = cellEvent[0];
             if (eventType == EVENT_TYPE_MONSTER || eventType == EVENT_TYPE_CHEST) {
-                int[] adj = getAdjacentWalkable(mapId, toX, toY);
-                if (adj == null) return List.of();
-                endX = adj[0];
-                endY = adj[1];
-            } else if (!mapWalkableService.isWalkable(mapId, toX, toY)) {
+                endIsEvent = true;
+                // 路径终点设为怪物/宝箱格，便于步进时在该格触发 INTERRUPTED
+            } else if (!mapWalkableService.isWalkableForPathfinding(mapId, toX, toY)) {
                 return List.of();
             }
         } else {
-            if (!mapWalkableService.isWalkable(mapId, toX, toY)) return List.of();
+            if (!mapWalkableService.isWalkableForPathfinding(mapId, toX, toY)) return List.of();
         }
 
         if (fromX == endX && fromY == endY) return List.of();
 
-        return aStar(mapId, width, height, fromX, fromY, endX, endY);
+        return aStar(mapId, width, height, fromX, fromY, endX, endY, endIsEvent);
     }
 
-    private int[] getAdjacentWalkable(Integer mapId, int x, int y) {
+    private int[] getAdjacentWalkableForPathfinding(Integer mapId, int x, int y) {
         for (int[] d : NEIGHBORS) {
             int nx = x + d[0], ny = y + d[1];
-            if (mapWalkableService.isWalkable(mapId, nx, ny))
+            if (mapWalkableService.isWalkableForPathfinding(mapId, nx, ny))
                 return new int[]{nx, ny};
         }
         return null;
     }
 
-    private List<int[]> aStar(Integer mapId, int width, int height, int fromX, int fromY, int endX, int endY) {
+    private List<int[]> aStar(Integer mapId, int width, int height, int fromX, int fromY, int endX, int endY, boolean endIsEvent) {
         PriorityQueue<Node> open = new PriorityQueue<>(Comparator.comparingDouble(n -> n.f));
         Set<Long> closed = new HashSet<>();
         open.add(new Node(fromX, fromY, 0, manhattan(fromX, fromY, endX, endY), null));
@@ -83,17 +82,19 @@ public class MapPathService {
             closed.add(key);
 
             if (cur.x == endX && cur.y == endY) {
-                List<int[]> path = new ArrayList<>();
-                for (Node n = cur; n != null; n = n.parent) path.add(new int[]{n.x, n.y});
-                path.remove(path.size() - 1); // 去掉起点（回溯顺序是终点→起点，去掉后为 终点→第一步）
-                Collections.reverse(path);  // 反转为 第一步→...→终点，供前端按序播动画
-                return path;
+                return buildPathFromNode(cur, fromX, fromY);
             }
 
             for (int[] d : NEIGHBORS) {
                 int nx = cur.x + d[0], ny = cur.y + d[1];
                 if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
-                if (!mapWalkableService.isWalkable(mapId, nx, ny)) continue;
+                if (nx == endX && ny == endY && endIsEvent) {
+                    // 终点为怪物/宝箱格，从相邻格可直接“到达”终点，路径含该格
+                    List<int[]> path = buildPathFromNode(cur, fromX, fromY);
+                    path.add(new int[]{nx, ny});
+                    return path;
+                }
+                if (!mapWalkableService.isWalkableForPathfinding(mapId, nx, ny)) continue;
                 if (closed.contains(key(nx, ny))) continue;
 
                 double g = cur.g + 1;
@@ -102,6 +103,14 @@ public class MapPathService {
             }
         }
         return List.of();
+    }
+
+    private List<int[]> buildPathFromNode(Node cur, int fromX, int fromY) {
+        List<int[]> path = new ArrayList<>();
+        for (Node n = cur; n != null; n = n.parent) path.add(new int[]{n.x, n.y});
+        path.remove(path.size() - 1); // 去掉起点
+        Collections.reverse(path);
+        return path;
     }
 
     private static double manhattan(int x1, int y1, int x2, int y2) {

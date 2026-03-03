@@ -17,6 +17,11 @@ import org.springframework.stereotype.Service;
 public class MapWalkableService {
 
     private static final int EVENT_TYPE_BLOCK = 3;
+    private static final int EVENT_TYPE_ENTRANCE = 1;
+    private static final int EVENT_TYPE_EMPTY = 2;
+    private static final int EVENT_TYPE_EXIT = 4;
+    private static final int EVENT_TYPE_MONSTER = 5;
+    private static final int EVENT_TYPE_CHEST = 6;
 
     private final GameMapService gameMapService;
     private final ObjectMapper objectMapper;
@@ -41,6 +46,38 @@ public class MapWalkableService {
                     if (events != null && events.isArray() && events.size() > 0) {
                         int type = events.get(0).path("type").asInt(0);
                         return type != EVENT_TYPE_BLOCK;
+                    }
+                    return true;
+                }
+            }
+            return true;
+        } catch (Exception e) {
+            log.warn("解析地图失败 mapId={} x={} y={}", mapId, x, y, e);
+            return false;
+        }
+    }
+
+    /**
+     * 寻路用可通行：仅空地(2)、入口(1)、出口(4)为 true；阻挡(3)、怪物(5)、宝箱(6)为 false。
+     * 路径不能穿过怪物/宝箱格，只能在相邻格触发事件。
+     */
+    public boolean isWalkableForPathfinding(Integer mapId, int x, int y) {
+        if (mapId == null) return false;
+        GameMap map = gameMapService.getByMapId(mapId);
+        if (map == null || map.getData() == null || map.getData().isBlank()) return false;
+        try {
+            JsonNode root = objectMapper.readTree(map.getData());
+            int width = root.path("width").asInt(20);
+            int height = root.path("height").asInt(20);
+            if (x < 0 || x >= width || y < 0 || y >= height) return false;
+            JsonNode cells = root.get("cells");
+            if (cells == null || !cells.isArray()) return true;
+            for (JsonNode cell : cells) {
+                if (cell.path("x").asInt() == x && cell.path("y").asInt() == y) {
+                    JsonNode events = cell.get("events");
+                    if (events != null && events.isArray() && events.size() > 0) {
+                        int type = events.get(0).path("type").asInt(0);
+                        return type == EVENT_TYPE_ENTRANCE || type == EVENT_TYPE_EMPTY || type == EVENT_TYPE_EXIT;
                     }
                     return true;
                 }

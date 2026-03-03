@@ -63,6 +63,12 @@ public class BattleStartProcessor implements MessageProcessor {
         session.setHp(result.getPlayerCurrentHp());
         session.setGameStatus(GameStatus.IN_GAME);
 
+        if (result.getType() == BattleResultType.Win) {
+            if (cellX != null && cellY != null) {
+                session.setCellX(cellX);
+                session.setCellY(cellY);
+            }
+        }
         if (result.getType() == BattleResultType.Win && monster.getItem() != null && !monster.getItem().isBlank()) {
             result.setDrops(dropRollService.parseAndRoll(monster.getItem()));
         }
