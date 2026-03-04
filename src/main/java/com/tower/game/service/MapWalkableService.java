@@ -27,14 +27,31 @@ public class MapWalkableService {
     private final ObjectMapper objectMapper;
 
     /**
+     * 解析用：优先使用 Session 缓存的 mapData，否则按 mapId 查库。
+     */
+    private String getMapData(Integer mapId, String mapDataOverride) {
+        if (mapDataOverride != null && !mapDataOverride.isBlank()) return mapDataOverride;
+        if (mapId == null) return null;
+        GameMap map = gameMapService.getByMapId(mapId);
+        return (map != null && map.getData() != null && !map.getData().isBlank()) ? map.getData() : null;
+    }
+
+    /**
      * 判断地图上某格是否可通行（在范围内且非阻挡）
      */
     public boolean isWalkable(Integer mapId, int x, int y) {
+        return isWalkable(mapId, x, y, null);
+    }
+
+    /**
+     * 同上，可传入 Session 缓存的 mapData 避免重复查库。
+     */
+    public boolean isWalkable(Integer mapId, int x, int y, String mapDataOverride) {
         if (mapId == null) return false;
-        GameMap map = gameMapService.getByMapId(mapId);
-        if (map == null || map.getData() == null || map.getData().isBlank()) return false;
+        String data = getMapData(mapId, mapDataOverride);
+        if (data == null) return false;
         try {
-            JsonNode root = objectMapper.readTree(map.getData());
+            JsonNode root = objectMapper.readTree(data);
             int width = root.path("width").asInt(20);
             int height = root.path("height").asInt(20);
             if (x < 0 || x >= width || y < 0 || y >= height) return false;
@@ -62,11 +79,15 @@ public class MapWalkableService {
      * 路径不能穿过怪物/宝箱格，只能在相邻格触发事件。
      */
     public boolean isWalkableForPathfinding(Integer mapId, int x, int y) {
+        return isWalkableForPathfinding(mapId, x, y, null);
+    }
+
+    public boolean isWalkableForPathfinding(Integer mapId, int x, int y, String mapDataOverride) {
         if (mapId == null) return false;
-        GameMap map = gameMapService.getByMapId(mapId);
-        if (map == null || map.getData() == null || map.getData().isBlank()) return false;
+        String data = getMapData(mapId, mapDataOverride);
+        if (data == null) return false;
         try {
-            JsonNode root = objectMapper.readTree(map.getData());
+            JsonNode root = objectMapper.readTree(data);
             int width = root.path("width").asInt(20);
             int height = root.path("height").asInt(20);
             if (x < 0 || x >= width || y < 0 || y >= height) return false;
@@ -93,12 +114,16 @@ public class MapWalkableService {
      * 返回地图入口格子坐标，若无入口则 (0,0)
      */
     public int[] findEntrance(Integer mapId) {
+        return findEntrance(mapId, null);
+    }
+
+    public int[] findEntrance(Integer mapId, String mapDataOverride) {
         int[] fallback = {0, 0};
         if (mapId == null) return fallback;
-        GameMap map = gameMapService.getByMapId(mapId);
-        if (map == null || map.getData() == null || map.getData().isBlank()) return fallback;
+        String data = getMapData(mapId, mapDataOverride);
+        if (data == null) return fallback;
         try {
-            JsonNode root = objectMapper.readTree(map.getData());
+            JsonNode root = objectMapper.readTree(data);
             JsonNode cells = root.get("cells");
             if (cells == null || !cells.isArray()) return fallback;
             for (JsonNode cell : cells) {
@@ -121,11 +146,15 @@ public class MapWalkableService {
      * @return [type, id]，若无事件或越界返回 null；有事件时 id 为 events[0].id（怪物/宝箱等）
      */
     public int[] getCellEvent(Integer mapId, int x, int y) {
+        return getCellEvent(mapId, x, y, null);
+    }
+
+    public int[] getCellEvent(Integer mapId, int x, int y, String mapDataOverride) {
         if (mapId == null) return null;
-        GameMap map = gameMapService.getByMapId(mapId);
-        if (map == null || map.getData() == null || map.getData().isBlank()) return null;
+        String data = getMapData(mapId, mapDataOverride);
+        if (data == null) return null;
         try {
-            JsonNode root = objectMapper.readTree(map.getData());
+            JsonNode root = objectMapper.readTree(data);
             int width = root.path("width").asInt(20);
             int height = root.path("height").asInt(20);
             if (x < 0 || x >= width || y < 0 || y >= height) return null;
@@ -154,12 +183,15 @@ public class MapWalkableService {
      * 返回地图宽高 [width, height]
      */
     public int[] getMapSize(Integer mapId) {
+        return getMapSize(mapId, null);
+    }
+
+    public int[] getMapSize(Integer mapId, String mapDataOverride) {
         if (mapId == null) return new int[]{20, 20};
-        GameMap map = gameMapService.getByMapId(mapId);
-        if (map == null || map.getData() == null || map.getData().isBlank())
-            return new int[]{20, 20};
+        String data = getMapData(mapId, mapDataOverride);
+        if (data == null) return new int[]{20, 20};
         try {
-            JsonNode root = objectMapper.readTree(map.getData());
+            JsonNode root = objectMapper.readTree(data);
             return new int[]{root.path("width").asInt(20), root.path("height").asInt(20)};
         } catch (Exception e) {
             log.warn("解析地图尺寸失败 mapId={}", mapId, e);

@@ -31,6 +31,10 @@ public class SessionState implements Serializable {
     /** 当前格子 Y，未进图为 -1 */
     private int cellY;
 
+    /** 当前地图缓存：与 mapId 一致时有效，为当前地图 JSON（GameMap.data） */
+    private Integer currentMapId;
+    private String currentMapData;
+
     private long loginTime;
     private long lastActiveTime;
 
@@ -55,5 +59,18 @@ public class SessionState implements Serializable {
      */
     public boolean hasPosition() {
         return cellX >= 0 && cellY >= 0;
+    }
+
+    /**
+     * 当前会话是否已有与 mapId 对应的地图数据缓存
+     */
+    public boolean hasCurrentMapDataFor(Integer mapId) {
+        return mapId != null && mapId.equals(currentMapId) && currentMapData != null && !currentMapData.isBlank();
+    }
+
+    /** 清空当前地图缓存（换图时调用） */
+    public void clearCurrentMapData() {
+        this.currentMapId = null;
+        this.currentMapData = null;
     }
 }

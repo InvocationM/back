@@ -79,9 +79,24 @@ public class PlayerSession {
 
     public void setHp(int hp) { state.setHp(hp); }
     public void setGameStatus(GameStatus gameStatus) { state.setGameStatus(gameStatus); }
-    public void setMapId(Integer mapId) { state.setMapId(mapId); }
+    public void setMapId(Integer mapId) {
+        if (mapId != null && state.getMapId() != null && !mapId.equals(state.getMapId())) {
+            state.clearCurrentMapData();
+        }
+        state.setMapId(mapId);
+    }
     public void setCellX(int cellX) { state.setCellX(cellX); }
     public void setCellY(int cellY) { state.setCellY(cellY); }
+
+    /** 当前地图缓存：与 mapId 一致时有效 */
+    public Integer getCurrentMapId() { return state.getCurrentMapId(); }
+    public String getCurrentMapData() { return state.getCurrentMapData(); }
+    public void setCurrentMapData(Integer mapId, String data) {
+        state.setCurrentMapId(mapId);
+        state.setCurrentMapData(data);
+    }
+    public boolean hasCurrentMapDataFor(Integer mapId) { return state.hasCurrentMapDataFor(mapId); }
+    public void clearCurrentMapData() { state.clearCurrentMapData(); }
 
     public WebSocketSession getWebSocketSession() { return webSocketSession; }
 
@@ -97,6 +112,8 @@ public class PlayerSession {
                 .mapId(state.getMapId())
                 .cellX(state.getCellX())
                 .cellY(state.getCellY())
+                .currentMapId(state.getCurrentMapId())
+                .currentMapData(state.getCurrentMapData())
                 .loginTime(state.getLoginTime())
                 .lastActiveTime(state.getLastActiveTime())
                 .hp(state.getHp())

@@ -1,7 +1,9 @@
 package com.tower.game.server.processor;
 
 import com.tower.game.common.constant.MessageType;
+import com.tower.game.model.entity.GameMap;
 import com.tower.game.server.session.PlayerSession;
+import com.tower.game.service.GameMapService;
 import com.tower.game.service.MapPathService;
 import com.tower.game.service.MapWalkableService;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +34,16 @@ public class MoveIntentProcessor implements MessageProcessor {
 
     private final MapWalkableService mapWalkableService;
     private final MapPathService mapPathService;
+    private final GameMapService gameMapService;
+
+    /** 确保 Session 中已加载该 mapId 的地图数据（用于复用，避免同请求内重复查库） */
+    private void ensureSessionMapLoaded(PlayerSession session, int mapId) {
+        if (session.hasCurrentMapDataFor(mapId)) return;
+        GameMap map = gameMapService.getByMapId(mapId);
+        if (map != null && map.getData() != null && !map.getData().isBlank()) {
+            session.setCurrentMapData(mapId, map.getData());
+        }
+    }
 
     @Override
     public void handle(PlayerSession session, Object message) {
@@ -55,7 +67,9 @@ public class MoveIntentProcessor implements MessageProcessor {
         int mapId = mapIdParam != null ? mapIdParam : DEFAULT_MAP_ID;
 
         if (!session.hasPosition()) {
-            int[] entrance = mapWalkableService.findEntrance(mapId);
+            ensureSessionMapLoaded(session, mapId);
+            String mapData = session.getCurrentMapData();
+            int[] entrance = mapWalkableService.findEntrance(mapId, mapData);
             session.setMapId(mapId);
             session.setCellX(entrance[0]);
             session.setCellY(entrance[1]);
@@ -68,7 +82,10 @@ public class MoveIntentProcessor implements MessageProcessor {
         Integer sessionMapId = session.getMapId();
         if (sessionMapId == null) sessionMapId = DEFAULT_MAP_ID;
 
-        int[] size = mapWalkableService.getMapSize(sessionMapId);
+        ensureSessionMapLoaded(session, sessionMapId);
+        String mapData = session.getCurrentMapData();
+
+        int[] size = mapWalkableService.getMapSize(sessionMapId, mapData);
         int width = size[0], height = size[1];
         if (targetX < 0 || targetX >= width || targetY < 0 || targetY >= height) {
             sendFail(session, "目标格超出范围", fromX, fromY, seqId);
@@ -80,7 +97,7 @@ public class MoveIntentProcessor implements MessageProcessor {
             return;
         }
 
-        List<int[]> path = mapPathService.findPath(sessionMapId, fromX, fromY, targetX, targetY);
+        List<int[]> path = mapPathService.findPath(sessionMapId, fromX, fromY, targetX, targetY, mapData);
         if (path.isEmpty()) {
             sendFail(session, "无法到达目标格", fromX, fromY, seqId);
             return;
@@ -91,7 +108,7 @@ public class MoveIntentProcessor implements MessageProcessor {
         for (int i = 0; i < path.size(); i++) {
             int[] cell = path.get(i);
             int cx = cell[0], cy = cell[1];
-            int[] cellEvent = mapWalkableService.getCellEvent(sessionMapId, cx, cy);
+            int[] cellEvent = mapWalkableService.getCellEvent(sessionMapId, cx, cy, mapData);
             if (cellEvent != null) {
                 int eventType = cellEvent[0];
                 int eventId = cellEvent[1];

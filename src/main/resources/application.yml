@@ -1,7 +1,12 @@
 spring:
   application:
     name: tower
-  
+
+  # 虚拟线程（Project Loom，需 Java 21+）
+  threads:
+    virtual:
+      enabled: true
+
   # 数据源配置
   datasource:
     type: com.zaxxer.hikari.HikariDataSource

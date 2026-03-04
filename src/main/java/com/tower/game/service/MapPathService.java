@@ -34,43 +34,50 @@ public class MapPathService {
      * @return 路径格子列表（不含起点，含终点），无法到达则返回空列表
      */
     public List<int[]> findPath(Integer mapId, int fromX, int fromY, int toX, int toY) {
+        return findPath(mapId, fromX, fromY, toX, toY, null);
+    }
+
+    /**
+     * 同上，可传入 Session 缓存的 mapData 避免重复查库。
+     */
+    public List<int[]> findPath(Integer mapId, int fromX, int fromY, int toX, int toY, String mapDataOverride) {
         if (mapId == null) return List.of();
-        int[] size = mapWalkableService.getMapSize(mapId);
+        int[] size = mapWalkableService.getMapSize(mapId, mapDataOverride);
         int width = size[0], height = size[1];
         if (fromX < 0 || fromX >= width || fromY < 0 || fromY >= height) return List.of();
         if (toX < 0 || toX >= width || toY < 0 || toY >= height) return List.of();
-        if (!mapWalkableService.isWalkableForPathfinding(mapId, fromX, fromY)) return List.of();
+        if (!mapWalkableService.isWalkableForPathfinding(mapId, fromX, fromY, mapDataOverride)) return List.of();
 
         int endX = toX, endY = toY;
         boolean endIsEvent = false;
-        int[] cellEvent = mapWalkableService.getCellEvent(mapId, toX, toY);
+        int[] cellEvent = mapWalkableService.getCellEvent(mapId, toX, toY, mapDataOverride);
         if (cellEvent != null) {
             int eventType = cellEvent[0];
             if (eventType == EVENT_TYPE_MONSTER || eventType == EVENT_TYPE_CHEST) {
                 endIsEvent = true;
                 // 路径终点设为怪物/宝箱格，便于步进时在该格触发 INTERRUPTED
-            } else if (!mapWalkableService.isWalkableForPathfinding(mapId, toX, toY)) {
+            } else if (!mapWalkableService.isWalkableForPathfinding(mapId, toX, toY, mapDataOverride)) {
                 return List.of();
             }
         } else {
-            if (!mapWalkableService.isWalkableForPathfinding(mapId, toX, toY)) return List.of();
+            if (!mapWalkableService.isWalkableForPathfinding(mapId, toX, toY, mapDataOverride)) return List.of();
         }
 
         if (fromX == endX && fromY == endY) return List.of();
 
-        return aStar(mapId, width, height, fromX, fromY, endX, endY, endIsEvent);
+        return aStar(mapId, mapDataOverride, width, height, fromX, fromY, endX, endY, endIsEvent);
     }
 
-    private int[] getAdjacentWalkableForPathfinding(Integer mapId, int x, int y) {
+    private int[] getAdjacentWalkableForPathfinding(Integer mapId, String mapDataOverride, int x, int y) {
         for (int[] d : NEIGHBORS) {
             int nx = x + d[0], ny = y + d[1];
-            if (mapWalkableService.isWalkableForPathfinding(mapId, nx, ny))
+            if (mapWalkableService.isWalkableForPathfinding(mapId, nx, ny, mapDataOverride))
                 return new int[]{nx, ny};
         }
         return null;
     }
 
-    private List<int[]> aStar(Integer mapId, int width, int height, int fromX, int fromY, int endX, int endY, boolean endIsEvent) {
+    private List<int[]> aStar(Integer mapId, String mapDataOverride, int width, int height, int fromX, int fromY, int endX, int endY, boolean endIsEvent) {
         PriorityQueue<Node> open = new PriorityQueue<>(Comparator.comparingDouble(n -> n.f));
         Set<Long> closed = new HashSet<>();
         open.add(new Node(fromX, fromY, 0, manhattan(fromX, fromY, endX, endY), null));
@@ -94,7 +101,7 @@ public class MapPathService {
                     path.add(new int[]{nx, ny});
                     return path;
                 }
-                if (!mapWalkableService.isWalkableForPathfinding(mapId, nx, ny)) continue;
+                if (!mapWalkableService.isWalkableForPathfinding(mapId, nx, ny, mapDataOverride)) continue;
                 if (closed.contains(key(nx, ny))) continue;
 
                 double g = cur.g + 1;

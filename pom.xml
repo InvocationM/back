@@ -8,7 +8,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.1.9</version>
+        <version>3.3.5</version>
         <relativePath/>
     </parent>
 
@@ -32,11 +32,11 @@
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
-        <!-- MyBatis Plus -->
+        <!-- MyBatis Plus (Spring Boot 3) -->
         <dependency>
             <groupId>com.baomidou</groupId>
-            <artifactId>mybatis-plus-boot-starter</artifactId>
-            <version>3.5.5</version>
+            <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
+            <version>3.5.14</version>
         </dependency>
 
         <!-- Spring Boot Data Redis -->
@@ -133,6 +133,7 @@
                     <source>21</source>
                     <target>21</target>
                     <encoding>UTF-8</encoding>
+                    <parameters>true</parameters>
                     <annotationProcessorPaths>
                         <!-- Lombok 必须在 MapStruct 之前 -->
                         <path>
