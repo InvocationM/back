@@ -38,6 +38,12 @@
             <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
             <version>3.5.14</version>
         </dependency>
+        <!-- 3.5.9+ 分页等插件需单独引入 -->
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-jsqlparser</artifactId>
+            <version>3.5.14</version>
+        </dependency>
 
         <!-- Spring Boot Data Redis -->
         <dependency>
