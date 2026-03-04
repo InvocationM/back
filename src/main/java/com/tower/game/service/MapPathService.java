@@ -14,7 +14,7 @@ import java.util.Set;
 
 /**
  * 服务端寻路：A* 算法，基于 MapWalkableService 可通行性。
- * 目标格为互动格（怪物/宝箱）时，寻路到其相邻一格可通行格。
+ * 目标格为互动格（怪物/宝箱）时，路径终点仅为相邻可走格，不包含事件格本身（方案 A）。
  */
 @Slf4j
 @Service
@@ -55,7 +55,7 @@ public class MapPathService {
             int eventType = cellEvent[0];
             if (eventType == EVENT_TYPE_MONSTER || eventType == EVENT_TYPE_CHEST) {
                 endIsEvent = true;
-                // 路径终点设为怪物/宝箱格，便于步进时在该格触发 INTERRUPTED
+                // 方案 A：路径终点仅为相邻可走格，不包含事件格本身
             } else if (!mapWalkableService.isWalkableForPathfinding(mapId, toX, toY, mapDataOverride)) {
                 return List.of();
             }
@@ -96,10 +96,8 @@ public class MapPathService {
                 int nx = cur.x + d[0], ny = cur.y + d[1];
                 if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
                 if (nx == endX && ny == endY && endIsEvent) {
-                    // 终点为怪物/宝箱格，从相邻格可直接“到达”终点，路径含该格
-                    List<int[]> path = buildPathFromNode(cur, fromX, fromY);
-                    path.add(new int[]{nx, ny});
-                    return path;
+                    // 方案 A：路径只到相邻格，不包含事件格；终点为 cur（怪物/宝箱面前的格）
+                    return buildPathFromNode(cur, fromX, fromY);
                 }
                 if (!mapWalkableService.isWalkableForPathfinding(mapId, nx, ny, mapDataOverride)) continue;
                 if (closed.contains(key(nx, ny))) continue;

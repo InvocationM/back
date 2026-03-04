@@ -10,15 +10,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
- * 移动意图处理器：客户端发 targetX/targetY/seqId，服务端校验可达性、按步模拟路径，
- * 遇怪物/宝箱即返回 INTERRUPTED；无中断则返回 SUCCESS 并更新权威坐标。
- * 客户端负责乐观预测与回滚（拉回 correctPos）。
+ * 移动意图处理器（方案 A）：客户端发 targetX/targetY/seqId，服务端只校验「移动到 target 格」的合法性，
+ * 更新权威坐标并返回 SUCCESS 或 400 失败；不再因遇怪/遇宝箱返回 INTERRUPTED。
  */
 @Slf4j
 @Component
@@ -26,11 +24,7 @@ import java.util.Map;
 public class MoveIntentProcessor implements MessageProcessor {
 
     private static final int DEFAULT_MAP_ID = 1001;
-    private static final int EVENT_TYPE_MONSTER = 5;
-    private static final int EVENT_TYPE_CHEST = 6;
-
     private static final String STATUS_SUCCESS = "SUCCESS";
-    private static final String STATUS_INTERRUPTED = "INTERRUPTED";
 
     private final MapWalkableService mapWalkableService;
     private final MapPathService mapPathService;
@@ -103,36 +97,9 @@ public class MoveIntentProcessor implements MessageProcessor {
             return;
         }
 
-        int lastValidX = fromX;
-        int lastValidY = fromY;
-        for (int i = 0; i < path.size(); i++) {
-            int[] cell = path.get(i);
-            int cx = cell[0], cy = cell[1];
-            int[] cellEvent = mapWalkableService.getCellEvent(sessionMapId, cx, cy, mapData);
-            if (cellEvent != null) {
-                int eventType = cellEvent[0];
-                int eventId = cellEvent[1];
-                if (eventType == EVENT_TYPE_MONSTER) {
-                    List<int[]> remainingPath = i + 1 < path.size()
-                            ? path.subList(i + 1, path.size())
-                            : List.of();
-                    sendInterrupted(session, lastValidX, lastValidY, "COMBAT", eventId, cx, cy, true, remainingPath, seqId);
-                    log.debug("移动中断: 遇怪 from=({},{}) eventCell=({},{}) monsterId={}", lastValidX, lastValidY, cx, cy, eventId);
-                    return;
-                }
-                if (eventType == EVENT_TYPE_CHEST) {
-                    List<int[]> remainingPath = i + 1 < path.size()
-                            ? path.subList(i + 1, path.size())
-                            : List.of();
-                    sendInterrupted(session, lastValidX, lastValidY, "CHEST", eventId, cx, cy, true, remainingPath, seqId);
-                    log.debug("移动中断: 遇宝箱 from=({},{}) eventCell=({},{}) chestId={}", lastValidX, lastValidY, cx, cy, eventId);
-                    return;
-                }
-            }
-            lastValidX = cx;
-            lastValidY = cy;
-        }
-
+        int[] lastCell = path.get(path.size() - 1);
+        int lastValidX = lastCell[0];
+        int lastValidY = lastCell[1];
         session.setCellX(lastValidX);
         session.setCellY(lastValidY);
         sendSuccess(session, lastValidX, lastValidY, seqId, List.of());
@@ -147,32 +114,6 @@ public class MoveIntentProcessor implements MessageProcessor {
         body.put("finalX", finalX);
         body.put("finalY", finalY);
         body.put("events", events != null ? events : List.of());
-        if (seqId != null) body.put("seqId", seqId);
-        session.sendMessage(body);
-    }
-
-    private void sendInterrupted(PlayerSession session, int currentX, int currentY, String eventType, int eventId,
-                                 int cellX, int cellY, boolean autoContinue, List<int[]> remainingPath, Integer seqId) {
-        Map<String, Object> body = new HashMap<>();
-        body.put("type", MessageType.MOVE_INTENT);
-        body.put("code", 200);
-        body.put("status", STATUS_INTERRUPTED);
-        body.put("currentX", currentX);
-        body.put("currentY", currentY);
-        Map<String, Object> event = new HashMap<>();
-        event.put("type", eventType);
-        if ("COMBAT".equals(eventType)) {
-            event.put("monsterId", eventId);
-        } else if ("CHEST".equals(eventType)) {
-            event.put("chestId", eventId);
-        }
-        event.put("cellX", cellX);
-        event.put("cellY", cellY);
-        body.put("event", event);
-        body.put("autoContinue", autoContinue);
-        List<Map<String, Object>> remaining = new ArrayList<>();
-        for (int[] p : remainingPath) remaining.add(Map.of("x", p[0], "y", p[1]));
-        body.put("remainingPath", remaining);
         if (seqId != null) body.put("seqId", seqId);
         session.sendMessage(body);
     }

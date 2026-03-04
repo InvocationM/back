@@ -7,6 +7,7 @@ import com.tower.game.common.dto.battle.BattleResultDto;
 import com.tower.game.server.session.PlayerSession;
 import com.tower.game.service.BattleEngineService;
 import com.tower.game.service.DropRollService;
+import com.tower.game.service.MapWalkableService;
 import com.tower.game.service.MonsterService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,7 +17,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * 战斗开始处理器：收到 BATTLE_START(3001)，从上下文取玩家、查库取怪物，执行战斗，胜利时后端 roll 掉落，回发 BATTLE_RESULT(3003)
+ * 战斗开始处理器（方案 A）：收到 BATTLE_START(3001)，校验玩家在怪物格相邻、该格确有该怪，执行战斗并回发 BATTLE_RESULT(3003)。
+ * 胜利后不更新玩家位置到怪物格，保持在与怪物相邻格。
  */
 @Slf4j
 @Component
@@ -24,10 +26,12 @@ import java.util.Map;
 public class BattleStartProcessor implements MessageProcessor {
 
     private static final int MAX_ROUNDS = 50;
+    private static final int EVENT_TYPE_MONSTER = 5;
 
     private final BattleEngineService battleEngineService;
     private final MonsterService monsterService;
     private final DropRollService dropRollService;
+    private final MapWalkableService mapWalkableService;
 
     @Override
     public void handle(PlayerSession session, Object message) {
@@ -40,12 +44,30 @@ public class BattleStartProcessor implements MessageProcessor {
         Integer monsterId = getInt(msg, "monsterId");
         Integer cellX = getInt(msg, "cellX");
         Integer cellY = getInt(msg, "cellY");
-        if (monsterId == null) {
-            sendFail(session, "缺少 monsterId");
+        if (monsterId == null || cellX == null || cellY == null) {
+            sendFail(session, "缺少 monsterId 或 cellX/cellY");
             return;
         }
         if (session.getGameStatus() == GameStatus.BATTLE) {
             sendFail(session, "已在战斗中");
+            return;
+        }
+        if (session.getMapId() == null || !session.hasPosition()) {
+            log.debug("3001 校验失败: 未在有效地图位置");
+            sendFail(session, "未在有效地图位置");
+            return;
+        }
+        int px = session.getCellX();
+        int py = session.getCellY();
+        if (Math.abs(px - cellX) + Math.abs(py - cellY) != 1) {
+            log.debug("3001 校验失败: 不在怪物相邻格 player=({},{}) monsterCell=({},{})", px, py, cellX, cellY);
+            sendFail(session, "不在怪物相邻格");
+            return;
+        }
+        int[] cellEvent = mapWalkableService.getCellEvent(session.getMapId(), cellX, cellY, session.getCurrentMapData());
+        if (cellEvent == null || cellEvent[0] != EVENT_TYPE_MONSTER || cellEvent[1] != monsterId) {
+            log.debug("3001 校验失败: 该格无此怪物 mapId={} cell=({},{}) monsterId={}", session.getMapId(), cellX, cellY, monsterId);
+            sendFail(session, "该格无此怪物或非怪物格");
             return;
         }
 
@@ -62,13 +84,8 @@ public class BattleStartProcessor implements MessageProcessor {
 
         session.setHp(result.getPlayerCurrentHp());
         session.setGameStatus(GameStatus.IN_GAME);
+        // 方案 A：胜利后不更新玩家到怪物格，保持在与怪物相邻格
 
-        if (result.getType() == BattleResultType.Win) {
-            if (cellX != null && cellY != null) {
-                session.setCellX(cellX);
-                session.setCellY(cellY);
-            }
-        }
         if (result.getType() == BattleResultType.Win && monster.getItem() != null && !monster.getItem().isBlank()) {
             result.setDrops(dropRollService.parseAndRoll(monster.getItem()));
         }

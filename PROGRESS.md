@@ -12,12 +12,12 @@
 - **接口**：`POST /api/map/{mapId}` 返回的 `data` 中，每个格子的 `events` 数组至多一个元素。
 - **客户端**：Unity MapLoader 不再调用 `SelectEventByWeight`，直接使用服务端下发的唯一事件（`events[0]`），并移除了客户端权重选择相关代码。
 
-### 玩家移动 — 意图协议 MOVE_INTENT（前端只播动画）
+### 玩家移动 — 意图协议 MOVE_INTENT（方案 A：前端自主移动 + 后端事件验证）
 
-- **原则**：前端不拥有位置，只拥有动画；仅发「点了哪个格子」，后端返回路径或交互结果。
-- **协议**：见 [docs/玩家移动_意图协议_MOVE_INTENT.md](docs/玩家移动_意图协议_MOVE_INTENT.md)。C→S：`type: 2002, targetX, targetY, mapId`；S→C：`action: move` 带 path，或 `battle`/`chest` 带参数，或 400。
-- **后端**：新增 `MapPathService`（A* 寻路）、`MoveIntentProcessor`（意图处理）；`MapWalkableService` 增加 getCellEvent、getMapSize。删除 `PlayerMoveProcessor`（原 PLAYER_MOVE 2001）。
-- **前端**：MapController 只发 MOVE_INTENT，按 action 播动画或触发战斗/开箱；删除 Pathfinder、_pendingPath、_waitingForAck 等越权逻辑。
+- **原则**：前端寻路与动画自主；2002 只传「可走到的终点」（遇怪/宝箱时传相邻格），后端只校验移动合法性并回 SUCCESS/失败；事件由前端到相邻格后主动发 3001/开箱，后端校验后执行。
+- **协议**：见 [docs/玩家移动_意图协议_MOVE_INTENT.md](docs/玩家移动_意图协议_MOVE_INTENT.md)。C→S：`type: 2002, targetX, targetY, mapId`；S→C 仅两种：成功 `status: SUCCESS, finalX, finalY` 或 400 失败（含 correctPos）；不再返回 INTERRUPTED 或 action battle/chest。
+- **后端**：`MoveIntentProcessor` 只做「移动到 target」校验，删除遇怪/遇宝箱 INTERRUPTED 逻辑；`MapPathService` 目标为事件格时路径只到相邻格；`BattleStartProcessor` 增加相邻格 + 该格怪物校验，胜利后不更新玩家到怪物格。
+- **前端**：寻路只到相邻格，路径走完后根据意图格主动发 3001 或开箱；不再依赖 2002 回包中的 battle/chest。
 
 ### 玩家移动前后端分离（第一版，已由 MOVE_INTENT 替代）
 
@@ -42,7 +42,7 @@
   - **MonsterService.getById**：单条怪物实时查库。
   - **BattleEngineService**：命中/伤害/暴击/反伤/连击、50 回合上限，与 Unity BattleEngine 一致；`buildPlayerSnapshot(SessionState)`、`buildMonsterSnapshot(Monster)`、`run(...)`。
   - **DropRollService**：解析 Monster.item 字符串（道具id_数量范围_万分比），按万分比 roll，返回 `List<DropItemDto>`。
-  - **BattleStartProcessor**：处理 type=3001（monsterId、cellX、cellY）；从 session 取玩家快照、从 MonsterService 取怪物；执行战斗；胜利时调用 DropRollService 写入 result.drops；回包 3003 含 result、cellX、cellY、logs。
+  - **BattleStartProcessor**（方案 A）：处理 type=3001；校验玩家在 (cellX,cellY) 相邻格、该格确有 monsterId；执行战斗；胜利不更新玩家到怪物格；回包 3003 含 result、cellX、cellY、logs。
 - **消息**：C→S `{ "type": 3001, "monsterId", "cellX", "cellY" }`；S→C `{ "type": 3003, "code", "result": { "type", "playerCurrentHp", "totalRounds", "drops" }, "cellX", "cellY", "logs" }`。
 - **Unity 端**：需改为发 WS 3001 触发战斗，订阅 3003 用 result.drops + cellX/cellY 做掉落表现，不再本地 ParseAndRoll。
 
