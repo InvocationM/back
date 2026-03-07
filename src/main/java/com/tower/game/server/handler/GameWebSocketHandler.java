@@ -1,6 +1,9 @@
 package com.tower.game.server.handler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.RemovalCause;
 import com.tower.game.common.constant.MessageType;
 import com.tower.game.server.processor.MessageProcessor;
 import com.tower.game.server.processor.MessageProcessorRegistry;
@@ -14,21 +17,99 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
- * 游戏WebSocket处理器
+ * 游戏WebSocket处理器。
+ * 同一玩家的消息（除心跳1000/1001/1002外）由单线程Executor顺序执行，避免移动与战斗等消息并发导致的竞态。
+ * 队列消息以原始字符串传入，在玩家线程内解析；Executor 由 Caffeine 管理，带超时与监控。
  */
 @Slf4j
 @Component
 public class GameWebSocketHandler extends TextWebSocketHandler {
 
-    // 写死的测试用户
+    // ---------- 可调配置 ----------
+    private static final long EXECUTOR_EXPIRE_AFTER_ACCESS_MINUTES = 30;
+    private static final int EXECUTOR_CACHE_MAX_SIZE = 10_000;
+    private static final long MESSAGE_TIMEOUT_SECONDS = 3;
+    private static final long EXECUTOR_GRACEFUL_AWAIT_SECONDS = 1;
+    private static final long MONITOR_INTERVAL_SECONDS = 60;
+    private static final int BACKLOG_WARN_THRESHOLD = 100;
+
     private static final Long TEST_USER_ID = 1001L;
     private static final String TEST_USERNAME = "test_user";
-    
+    private static final String TIMEOUT_MESSAGE = "操作超时，请重试";
+
+    /** 心跳快速判断：先 contains 再 Pattern 保底 */
+    private static final String TYPE_PREFIX = "\"type\":100";
+    private static final Pattern TYPE_PATTERN = Pattern.compile("\"type\"\\s*:\\s*(-?\\d+)");
+
+    private static boolean isDirectMessageByString(String text) {
+        if (text == null || text.isBlank()) return false;
+        if (!text.contains(TYPE_PREFIX)) return false;
+        Matcher m = TYPE_PATTERN.matcher(text);
+        if (m.find()) {
+            try {
+                int t = Integer.parseInt(m.group(1));
+                return t == MessageType.HEARTBEAT || t == MessageType.LOGIN || t == MessageType.LOGOUT;
+            } catch (NumberFormatException ignored) {
+                return false;
+            }
+        }
+        return false;
+    }
+
+    private static void shutdownExecutorGracefully(ExecutorService executor) {
+        if (executor == null) return;
+        executor.shutdown();
+        try {
+            if (!executor.awaitTermination(EXECUTOR_GRACEFUL_AWAIT_SECONDS, TimeUnit.SECONDS)) {
+                executor.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            executor.shutdownNow();
+        }
+    }
+
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    /** 消息实际执行用线程池（超时等待时不能占用玩家单线程） */
+    private final ExecutorService messageRunExecutor = Executors.newCachedThreadPool(r -> {
+        Thread t = new Thread(r, "ws-msg-run");
+        t.setDaemon(true);
+        return t;
+    });
+
+    /** 玩家 Executor 缓存：过期或淘汰时优雅关闭 */
+    private final Cache<String, ExecutorService> executorCache = Caffeine.newBuilder()
+            .expireAfterAccess(EXECUTOR_EXPIRE_AFTER_ACCESS_MINUTES, TimeUnit.MINUTES)
+            .maximumSize(EXECUTOR_CACHE_MAX_SIZE)
+            .removalListener((String key, ExecutorService executor, RemovalCause cause) -> {
+                if (executor != null) {
+                    shutdownExecutorGracefully(executor);
+                }
+            })
+            .build();
+
+    /** 监控：总入队、完成、超时 */
+    private final AtomicLong totalEnqueued = new AtomicLong(0);
+    private final AtomicLong totalCompleted = new AtomicLong(0);
+    private final AtomicLong totalTimeout = new AtomicLong(0);
+
+    private ScheduledExecutorService monitorScheduler;
 
     @Autowired
     private SessionManager sessionManager;
@@ -36,15 +117,47 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     @Autowired
     private MessageProcessorRegistry processorRegistry;
 
+    @PostConstruct
+    public void startMonitor() {
+        monitorScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "ws-monitor");
+            t.setDaemon(true);
+            return t;
+        });
+        monitorScheduler.scheduleAtFixedRate(
+                this::logQueueStats,
+                MONITOR_INTERVAL_SECONDS,
+                MONITOR_INTERVAL_SECONDS,
+                TimeUnit.SECONDS);
+    }
+
+    @PreDestroy
+    public void stopMonitor() {
+        if (monitorScheduler != null) {
+            monitorScheduler.shutdownNow();
+        }
+        messageRunExecutor.shutdownNow();
+        executorCache.invalidateAll();
+    }
+
+    private void logQueueStats() {
+        long enqueued = totalEnqueued.get();
+        long completed = totalCompleted.get();
+        long timeout = totalTimeout.get();
+        long backlog = enqueued - completed - timeout;
+        if (backlog > BACKLOG_WARN_THRESHOLD) {
+            log.warn("WebSocket 队列积压: 入队={}, 完成={}, 超时={}, 积压={}", enqueued, completed, timeout, backlog);
+        } else {
+            log.debug("WebSocket 队列: 入队={}, 完成={}, 超时={}, 积压={}", enqueued, completed, timeout, backlog);
+        }
+    }
+
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         log.info("WebSocket客户端连接: {}", session.getRemoteAddress());
-        // 连接时自动创建写死的测试用户会话
         PlayerSession playerSession = sessionManager.createSession(TEST_USER_ID, TEST_USERNAME, session);
-        log.info("自动创建测试用户会话: sessionId={}, userId={}, username={}", 
-            playerSession.getSessionId(), TEST_USER_ID, TEST_USERNAME);
-        
-        // 发送欢迎消息
+        log.info("自动创建测试用户会话: sessionId={}, userId={}, username={}",
+                playerSession.getSessionId(), TEST_USER_ID, TEST_USERNAME);
         sendWelcomeMessage(playerSession);
     }
 
@@ -54,33 +167,85 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         log.debug("收到WebSocket消息: {}", text);
 
         PlayerSession playerSession = sessionManager.getSession(session);
-        
-        // 如果没有会话，自动创建写死的测试用户会话
         if (playerSession == null) {
             log.info("自动创建测试用户会话: userId={}, username={}", TEST_USER_ID, TEST_USERNAME);
             playerSession = sessionManager.createSession(TEST_USER_ID, TEST_USERNAME, session);
         }
-
-        // 更新最后活跃时间
         playerSession.updateActiveTime();
 
-        try {
-            // 解析JSON消息
-            Map<String, Object> msg = objectMapper.readValue(text, Map.class);
-            int messageType = (Integer) msg.getOrDefault("type", MessageType.HEARTBEAT);
-            
-            // 从注册表获取对应的消息处理器
-            MessageProcessor processor = processorRegistry.getProcessor(messageType);
+        if (isDirectMessageByString(text)) {
+            try {
+                processMessageInPlayerThread(playerSession, text);
+            } catch (Exception e) {
+                log.error("解析或处理直接消息失败: {}", text, e);
+                sendError(playerSession, "消息格式错误");
+            }
+            return;
+        }
 
+        final String rawPayload = text;
+        String sessionKey = session.getId();
+        ExecutorService executor = executorCache.get(sessionKey, id ->
+                Executors.newSingleThreadExecutor(r -> {
+                    Thread t = new Thread(r, "ws-player-" + id);
+                    t.setDaemon(true);
+                    return t;
+                }));
+
+        totalEnqueued.incrementAndGet();
+        executor.submit(() -> {
+            PlayerSession ps = sessionManager.getSession(session);
+            if (ps == null) {
+                totalCompleted.incrementAndGet();
+                return;
+            }
+            ps.updateActiveTime();
+            try {
+                CompletableFuture.runAsync(
+                        () -> processMessageInPlayerThread(ps, rawPayload),
+                        messageRunExecutor
+                ).get(MESSAGE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                totalCompleted.incrementAndGet();
+            } catch (TimeoutException e) {
+                totalTimeout.incrementAndGet();
+                log.error("消息处理超时: sessionId={}, payload={}", ps.getSessionId(), rawPayload);
+                sendError(ps, TIMEOUT_MESSAGE);
+            } catch (Exception e) {
+                totalCompleted.incrementAndGet();
+                log.error("消息处理异常: sessionId={}", ps.getSessionId(), e);
+                sendError(ps, "消息格式错误");
+            }
+        });
+    }
+
+    /**
+     * 解析原始消息并分发。直接消息在 tomcat 线程调用；队列消息由 CompletableFuture 在 messageRunExecutor 中带超时调用。
+     */
+    private void processMessageInPlayerThread(PlayerSession playerSession, String rawPayload) {
+        Map<String, Object> msg;
+        try {
+            msg = objectMapper.readValue(rawPayload, Map.class);
+        } catch (Exception e) {
+            log.error("玩家线程解析消息失败: {}", rawPayload, e);
+            sendError(playerSession, "消息格式错误");
+            return;
+        }
+        int messageType = (Integer) msg.getOrDefault("type", MessageType.HEARTBEAT);
+        dispatchMessage(playerSession, messageType, msg);
+    }
+
+    private void dispatchMessage(PlayerSession playerSession, int messageType, Map<String, Object> msg) {
+        try {
+            MessageProcessor processor = processorRegistry.getProcessor(messageType);
             if (processor != null) {
                 processor.handle(playerSession, msg);
             } else {
                 log.warn("未找到消息处理器: messageType={}, sessionId={}",
-                    messageType, playerSession.getSessionId());
+                        messageType, playerSession.getSessionId());
                 sendError(playerSession, "未知的消息类型: " + messageType);
             }
         } catch (Exception e) {
-            log.error("解析消息失败: {}", text, e);
+            log.error("处理消息失败: messageType={}, sessionId={}", messageType, playerSession.getSessionId(), e);
             sendError(playerSession, "消息格式错误");
         }
     }
@@ -89,17 +254,16 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
         log.info("WebSocket客户端断开连接: {}, status: {}", session.getRemoteAddress(), status);
         sessionManager.removeSession(session);
+        executorCache.invalidate(session.getId());
     }
 
     @Override
     public void handleTransportError(WebSocketSession session, Throwable exception) throws Exception {
         log.error("WebSocket传输错误", exception);
         sessionManager.removeSession(session);
+        executorCache.invalidate(session.getId());
     }
 
-    /**
-     * 发送欢迎消息
-     */
     private void sendWelcomeMessage(PlayerSession session) {
         Map<String, Object> welcome = new HashMap<>();
         welcome.put("type", 0);
@@ -110,9 +274,6 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         session.sendMessage(welcome);
     }
 
-    /**
-     * 发送错误消息
-     */
     private void sendError(PlayerSession session, String errorMsg) {
         Map<String, Object> errorResponse = new HashMap<>();
         errorResponse.put("type", -1);
