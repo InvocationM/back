@@ -2,6 +2,7 @@ package com.tower.game.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.tower.game.common.enums.ItemShapeType;
+import com.tower.game.common.exception.BusinessException;
 import com.tower.game.mapper.PlayerBackpackItemMapper;
 import com.tower.game.model.entity.Item;
 import com.tower.game.model.entity.PlayerBackpackItem;
@@ -28,25 +29,24 @@ public class PlayerBackpackItemService {
 
     /**
      * 校验并放入：指定格放置或与同格同道具叠加
-     *
-     * @return 错误信息，null 表示可放入并已执行
+     * 校验失败时抛出 BusinessException
      */
     @Transactional(rollbackFor = Exception.class)
-    public String validateAndPut(Long playerId, int slotIndex, int gridRow, int gridCol, int itemId, int count) {
-        if (count <= 0) return "数量必须大于0";
+    public void validateAndPut(Long playerId, int slotIndex, int gridRow, int gridCol, int itemId, int count) {
+        if (count <= 0) throw new BusinessException("数量必须大于0");
 
         Item item = itemService.getById(itemId);
-        if (item == null) return "物品不存在";
+        if (item == null) throw new BusinessException("物品不存在");
         if (item.getShapeType() == null || item.getMaxStack() == null)
-            return "物品未配置形态或叠加数";
+            throw new BusinessException("物品未配置形态或叠加数");
 
         ItemShapeType shape = ItemShapeType.fromCode(item.getShapeType());
-        if (shape == null) return "物品形态不合法";
+        if (shape == null) throw new BusinessException("物品形态不合法");
 
         Set<String> unlocked = playerBackpackSlotService.getUnlockedCellKeys(playerId, slotIndex);
         Set<String> cover = cellsCovered(gridRow, gridCol, shape.getRows(), shape.getCols());
         for (String key : cover) {
-            if (!unlocked.contains(key)) return "放置区域含未解锁格子";
+            if (!unlocked.contains(key)) throw new BusinessException("放置区域含未解锁格子");
         }
 
         List<PlayerBackpackItem> existing = listByPlayerAndSlot(playerId, slotIndex);
@@ -65,16 +65,16 @@ public class PlayerBackpackItemService {
 
         if (samePlace != null) {
             int newCount = samePlace.getCount() + count;
-            if (newCount > item.getMaxStack()) return "超过该道具最大叠加数 " + item.getMaxStack();
+            if (newCount > item.getMaxStack()) throw new BusinessException("超过该道具最大叠加数 " + item.getMaxStack());
             samePlace.setCount(newCount);
             playerBackpackItemMapper.updateById(samePlace);
-            return null;
+            return;
         }
 
         for (String key : cover) {
-            if (occupied.contains(key)) return "与已有放置重叠";
+            if (occupied.contains(key)) throw new BusinessException("与已有放置重叠");
         }
-        if (count > item.getMaxStack()) return "超过该道具最大叠加数 " + item.getMaxStack();
+        if (count > item.getMaxStack()) throw new BusinessException("超过该道具最大叠加数 " + item.getMaxStack());
 
         PlayerBackpackItem insert = new PlayerBackpackItem();
         insert.setPlayerId(playerId);
@@ -84,7 +84,6 @@ public class PlayerBackpackItemService {
         insert.setItemId(itemId);
         insert.setCount(count);
         playerBackpackItemMapper.insert(insert);
-        return null;
     }
 
     /** 占格覆盖的 (row,col) 集合，key 为 "row,col" */

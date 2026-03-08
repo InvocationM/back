@@ -83,16 +83,13 @@ public class BackpackController {
      */
     @PostMapping("/put")
     public ApiResponse<Void> put(@Valid @RequestBody BackpackPutRequest request) {
-        String err = playerBackpackItemService.validateAndPut(
+        playerBackpackItemService.validateAndPut(
                 request.getPlayerId(),
                 request.getSlotIndex(),
                 request.getGridRow(),
                 request.getGridCol(),
                 request.getItemId(),
                 request.getCount());
-        if (err != null) {
-            return ApiResponse.error(400, err);
-        }
         return ApiResponse.success(null);
     }
 }
