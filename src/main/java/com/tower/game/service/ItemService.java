@@ -18,6 +18,13 @@ public class ItemService {
     private final ItemMapper itemMapper;
 
     /**
+     * 根据 id 查询单条物品
+     */
+    public Item getById(Integer id) {
+        return id == null ? null : itemMapper.selectById(id);
+    }
+
+    /**
      * 根据 id 列表批量查询物品
      */
     public List<Item> listByIds(List<Integer> ids) {

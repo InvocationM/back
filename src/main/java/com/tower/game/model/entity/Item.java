@@ -43,6 +43,18 @@ public class Item {
     private Integer subType;
 
     /**
+     * 背包占格形态 1～9（见 ItemShapeType）
+     */
+    @TableField("shape_type")
+    private Integer shapeType;
+
+    /**
+     * 最大叠加数量
+     */
+    @TableField("max_stack")
+    private Integer maxStack;
+
+    /**
      * 攻击力
      */
     private Integer attack;

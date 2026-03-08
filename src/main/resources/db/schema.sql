@@ -51,12 +51,55 @@ CREATE TABLE IF NOT EXISTS `item` (
     `icon` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '图标资源标识',
     `type` INT NOT NULL DEFAULT 0 COMMENT '物品类型',
     `sub_type` INT NOT NULL DEFAULT 0 COMMENT '物品子类型',
+    `shape_type` TINYINT NOT NULL DEFAULT 1 COMMENT '背包占格形态 1～9',
+    `max_stack` INT NOT NULL DEFAULT 1 COMMENT '最大叠加数量',
     `attack` INT NOT NULL DEFAULT 0 COMMENT '攻击力',
     `defence` INT NOT NULL DEFAULT 0 COMMENT '防御力',
     `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='物品表';
+
+-- 背包解锁次序表（配置表，10×7 每格一序号 1～70）
+CREATE TABLE IF NOT EXISTS `backpack_unlock_order` (
+    `id` INT NOT NULL AUTO_INCREMENT COMMENT '主键',
+    `slot_index` TINYINT NOT NULL DEFAULT 0 COMMENT '背包位 0～4',
+    `order_number` INT NOT NULL COMMENT '解锁序号 1～70',
+    `grid_row` SMALLINT NOT NULL COMMENT '行 0～9',
+    `grid_col` SMALLINT NOT NULL COMMENT '列 0～6',
+    `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_slot_order` (`slot_index`, `order_number`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='背包解锁次序表';
+
+-- 玩家背包位状态表
+CREATE TABLE IF NOT EXISTS `player_backpack_slot` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+    `player_id` BIGINT NOT NULL COMMENT '玩家ID',
+    `slot_index` TINYINT NOT NULL COMMENT '背包位 0～4',
+    `max_unlocked_order` INT NOT NULL DEFAULT 16 COMMENT '当前已解锁到的最大序号 1～70，16=4×4已激活',
+    `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_player_slot` (`player_id`, `slot_index`),
+    KEY `idx_player_id` (`player_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='玩家背包位状态表';
+
+-- 玩家背包放置表（每个占格放置一条）
+CREATE TABLE IF NOT EXISTS `player_backpack_item` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+    `player_id` BIGINT NOT NULL COMMENT '玩家ID',
+    `slot_index` TINYINT NOT NULL COMMENT '背包位 0～4',
+    `grid_row` SMALLINT NOT NULL COMMENT '占格左上角行',
+    `grid_col` SMALLINT NOT NULL COMMENT '占格左上角列',
+    `item_id` INT NOT NULL COMMENT '物品配置ID',
+    `count` INT NOT NULL DEFAULT 1 COMMENT '数量',
+    `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_player_slot` (`player_id`, `slot_index`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='玩家背包放置表';
 
 -- 宝箱表（配置表）
 CREATE TABLE IF NOT EXISTS `chest` (
