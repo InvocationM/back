@@ -6,6 +6,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.RemovalCause;
 import com.tower.game.common.constant.MessageType;
 import com.tower.game.server.processor.MessageProcessor;
+import com.tower.game.util.JsonUtil;
 import com.tower.game.server.processor.MessageProcessorRegistry;
 import com.tower.game.server.session.PlayerSession;
 import com.tower.game.server.session.SessionManager;
@@ -150,7 +151,6 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
         String text = message.getPayload();
-        log.debug("收到WebSocket消息: {}", text);
 
         PlayerSession playerSession = sessionManager.getSession(session);
         if (playerSession == null) {
@@ -214,18 +214,36 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     }
 
     private void dispatchMessage(PlayerSession playerSession, int messageType, Map<String, Object> msg) {
+        String sessionId = playerSession.getSessionId();
+        Long userId = playerSession.getUserId();
+        String payloadLog = JsonUtil.truncateForLog(JsonUtil.toJsonString(msg));
+
+        if (messageType == MessageType.HEARTBEAT) {
+            log.debug("WS 入参 [{}] sessionId={} userId={} {}", messageType, sessionId, userId, payloadLog);
+        } else {
+            log.info("WS 入参 [{}] sessionId={} userId={} {}", messageType, sessionId, userId, payloadLog);
+        }
+
+        long start = System.currentTimeMillis();
         try {
             MessageProcessor processor = processorRegistry.getProcessor(messageType);
             if (processor != null) {
                 processor.handle(playerSession, msg);
             } else {
                 log.warn("未找到消息处理器: messageType={}, sessionId={}",
-                        messageType, playerSession.getSessionId());
+                        messageType, sessionId);
                 sendError(playerSession, "未知的消息类型: " + messageType);
             }
         } catch (Exception e) {
-            log.error("处理消息失败: messageType={}, sessionId={}", messageType, playerSession.getSessionId(), e);
+            log.error("处理消息失败: messageType={}, sessionId={}", messageType, sessionId, e);
             sendError(playerSession, "消息格式错误");
+        } finally {
+            long cost = System.currentTimeMillis() - start;
+            if (messageType == MessageType.HEARTBEAT) {
+                log.debug("WS 处理完成 [{}] sessionId={} 耗时 {}ms", messageType, sessionId, cost);
+            } else {
+                log.info("WS 处理完成 [{}] sessionId={} 耗时 {}ms", messageType, sessionId, cost);
+            }
         }
     }
 

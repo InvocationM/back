@@ -149,4 +149,24 @@ public final class JsonUtil {
             return null;
         }
     }
+
+    /** 日志截断默认最大长度，与 ApiLogAspect 保持一致 */
+    public static final int DEFAULT_MAX_LOG_LENGTH = 2000;
+
+    /**
+     * 将字符串截断为适合日志输出的长度，超过部分用 "...(截断)" 替代。
+     */
+    public static String truncateForLog(String s) {
+        return truncateForLog(s, DEFAULT_MAX_LOG_LENGTH);
+    }
+
+    /**
+     * 将字符串截断为指定最大长度，超过部分用 "...(截断)" 替代。
+     */
+    public static String truncateForLog(String s, int maxLength) {
+        if (s == null || s.length() <= maxLength) {
+            return s;
+        }
+        return s.substring(0, maxLength) + "...(截断)";
+    }
 }

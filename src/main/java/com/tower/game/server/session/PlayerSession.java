@@ -1,12 +1,16 @@
 package com.tower.game.server.session;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tower.game.common.constant.MessageType;
 import com.tower.game.common.enums.GameStatus;
+import com.tower.game.util.JsonUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
@@ -160,10 +164,32 @@ public class PlayerSession {
                         ? (String) message
                         : objectMapper.writeValueAsString(message);
                 webSocketSession.sendMessage(new TextMessage(json));
+
+                int type = resolveMessageType(message, json);
+                String payloadLog = JsonUtil.truncateForLog(json);
+                if (type == MessageType.HEARTBEAT) {
+                    log.debug("WS 出参 [{}] sessionId={} userId={} {}", type, state.getSessionId(), state.getUserId(), payloadLog);
+                } else {
+                    log.info("WS 出参 [{}] sessionId={} userId={} {}", type, state.getSessionId(), state.getUserId(), payloadLog);
+                }
             } catch (IOException e) {
                 log.error("发送消息失败: sessionId={}", state.getSessionId(), e);
             }
         }
+    }
+
+    private static int resolveMessageType(Object message, String json) {
+        if (message instanceof Map<?, ?> m) {
+            Object t = m.get("type");
+            if (t instanceof Number n) return n.intValue();
+        }
+        try {
+            JsonNode node = JsonUtil.parseObject(json);
+            if (node != null && node.has("type")) return node.get("type").asInt(-1);
+        } catch (Exception ignored) {
+            // ignore
+        }
+        return -1;
     }
 
     public boolean isActive() {

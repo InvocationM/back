@@ -1,15 +1,14 @@
 package com.tower.game.server.processor;
 
 import com.tower.game.common.constant.MessageType;
+import com.tower.game.common.dto.battle.BattleResultDto;
 import com.tower.game.common.dto.battle.BattleResultType;
 import com.tower.game.common.enums.GameStatus;
-import com.tower.game.common.dto.battle.BattleResultDto;
 import com.tower.game.server.session.PlayerSession;
 import com.tower.game.service.BattleEngineService;
 import com.tower.game.service.DropRollService;
 import com.tower.game.service.MapWalkableService;
 import com.tower.game.service.MonsterService;
-import com.tower.game.util.JsonUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -102,7 +101,7 @@ public class BattleStartProcessor implements MessageProcessor {
         response.put("cellY", cellY != null ? cellY : -1);
         response.put("logs", result.getLogs());
         session.sendMessage(response);
-        log.debug("战斗结束: userId={}, monsterId={}, type={}, result:{}", session.getUserId(), monsterId, result.getType(), JsonUtil.toJsonString(result));
+//        log.debug("战斗结束: userId={}, monsterId={}, type={}, result:{}", session.getUserId(), monsterId, result.getType(), JsonUtil.toJsonString(result));
     }
 
     @Override
