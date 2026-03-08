@@ -1,6 +1,7 @@
 package com.tower.game.api;
 
 import com.tower.game.common.dto.PlayerDTO;
+import com.tower.game.common.exception.BusinessException;
 import com.tower.game.common.mapper.PlayerMapStructMapper;
 import com.tower.game.common.response.ApiResponse;
 import com.tower.game.model.entity.Player;
@@ -40,7 +41,7 @@ public class PlayerController {
     public ApiResponse<PlayerDTO> getById(@PathVariable Long id) {
         Player player = playerService.getPlayerById(id);
         if (player == null) {
-            return ApiResponse.error(404, "玩家不存在");
+            throw new BusinessException(404, "玩家不存在");
         }
         PlayerDTO dto = playerMapStructMapper.toDTO(player);
         return ApiResponse.success(dto);

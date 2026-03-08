@@ -1,6 +1,7 @@
 package com.tower.game.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tower.game.common.exception.BusinessException;
 import com.tower.game.common.response.ApiResponse;
 import com.tower.game.model.entity.GameMap;
 import com.tower.game.service.GameMapService;
@@ -30,14 +31,14 @@ public class MapController {
     public ApiResponse<?> getByMapId(@PathVariable Integer mapId) {
         GameMap map = gameMapService.getByMapId(mapId);
         if (map == null) {
-            return ApiResponse.error(404, "地图不存在");
+            throw new BusinessException(404, "地图不存在");
         }
         try {
             Object data = objectMapper.readValue(map.getData(), Object.class);
             return ApiResponse.success(data);
         } catch (Exception e) {
             log.warn("解析地图 JSON 失败 mapId={}", mapId, e);
-            return ApiResponse.error(500, "地图数据格式异常");
+            throw new BusinessException(500, "地图数据格式异常");
         }
     }
 }
