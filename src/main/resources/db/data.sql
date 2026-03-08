@@ -81,7 +81,6 @@ VALUES (1, '绿泡泡', 'NPC11', 5, 1, 20, 43, 26, 43, 9, 0, '1_1-1_10000;4_1-1_
         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 
-
 -- 物品表插入数据
 INSERT INTO `item` (`id`, `name`, `icon`, `type`, `sub_type`, `attack`, `defence`, `create_time`, `update_time`)
 VALUES (1, '测试装备', '0', 1, 0, 5, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
@@ -90,8 +89,23 @@ VALUES (1, '测试装备', '0', 1, 0, 5, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 
 
 -- 宝箱表插入数据
-INSERT INTO `chest` (`id`, `name`, `icon`, `rewards`, `create_time`, `update_time`) VALUES
-    (1, '普通宝箱', '', '1_1-1_10000;2_1-2_5000', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+INSERT INTO `chest` (`id`, `name`, `icon`, `rewards`, `create_time`, `update_time`)
+VALUES (1, '普通宝箱', '', '1_1-1_10000;2_1-2_5000', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 
+--  第一章的大章节 层数据
+INSERT INTO `big_map_layer` (`big_map_id`, `sort_order`, `options`)
+VALUES (1, 0, '[1001, 1002, 1003]'),
+       (1, 1, '[1004, 1005, 1006]'),
+       (1, 2, '[1007, 1008, 1009]'),
+       (1, 3, '[1010, 1011, 1012]'),
+       (1, 4, '[1013, 1014, 1015]');
 
+
+-- 插入第二章的大章节层数据
+INSERT INTO `big_map_layer` (`big_map_id`, `sort_order`, `options`)
+VALUES (2, 0, '[2001, 2002, 2003]'),
+       (2, 1, '[2004, 2005, 2006]'),
+       (2, 2, '[2007, 2008, 2009]'),
+       (2, 3, '[2010, 2011, 2012]'),
+       (2, 4, '[2013, 2014, 2015]');

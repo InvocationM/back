@@ -68,3 +68,24 @@ CREATE TABLE IF NOT EXISTS `chest` (
     `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='宝箱表';
+
+-- 大章节表（bigMaps 章节）
+CREATE TABLE IF NOT EXISTS `big_map` (
+    `id` INT NOT NULL COMMENT '大章节ID（与前端 bigMap.id 一致）',
+    `name` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '章节名称，如第一章',
+    `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='大章节表';
+
+-- 大章节层表（每章的 layers 项，options 存 JSON 数组）
+CREATE TABLE IF NOT EXISTS `big_map_layer` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+    `big_map_id` INT NOT NULL COMMENT '所属大章节ID',
+    `sort_order` INT NOT NULL COMMENT '层顺序，对应 layers 数组下标',
+    `options` JSON NOT NULL COMMENT '该层选项数组，如 [1001, 1002, 1003]',
+    `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_big_map_id` (`big_map_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='大章节层表';
