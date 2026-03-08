@@ -21,12 +21,10 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -34,7 +32,7 @@ import java.util.regex.Pattern;
 /**
  * 游戏WebSocket处理器。
  * 同一玩家的消息（除心跳1000/1001/1002外）由单线程Executor顺序执行，避免移动与战斗等消息并发导致的竞态。
- * 队列消息以原始字符串传入，在玩家线程内解析；Executor 由 Caffeine 管理，带超时与监控。
+ * 队列消息以原始字符串传入，在玩家单线程内解析并执行，保证同一玩家状态读写无跨线程可见性问题；Executor 由 Caffeine 管理，带监控。
  */
 @Slf4j
 @Component
@@ -43,14 +41,12 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     // ---------- 可调配置 ----------
     private static final long EXECUTOR_EXPIRE_AFTER_ACCESS_MINUTES = 30;
     private static final int EXECUTOR_CACHE_MAX_SIZE = 10_000;
-    private static final long MESSAGE_TIMEOUT_SECONDS = 3;
     private static final long EXECUTOR_GRACEFUL_AWAIT_SECONDS = 1;
     private static final long MONITOR_INTERVAL_SECONDS = 60;
     private static final int BACKLOG_WARN_THRESHOLD = 100;
 
     private static final Long TEST_USER_ID = 1001L;
     private static final String TEST_USERNAME = "test_user";
-    private static final String TIMEOUT_MESSAGE = "操作超时，请重试";
 
     /** 心跳快速判断：先 contains 再 Pattern 保底 */
     private static final String TYPE_PREFIX = "\"type\":100";
@@ -86,13 +82,6 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    /** 消息实际执行用线程池（超时等待时不能占用玩家单线程） */
-    private final ExecutorService messageRunExecutor = Executors.newCachedThreadPool(r -> {
-        Thread t = new Thread(r, "ws-msg-run");
-        t.setDaemon(true);
-        return t;
-    });
-
     /** 玩家 Executor 缓存：过期或淘汰时优雅关闭 */
     private final Cache<String, ExecutorService> executorCache = Caffeine.newBuilder()
             .expireAfterAccess(EXECUTOR_EXPIRE_AFTER_ACCESS_MINUTES, TimeUnit.MINUTES)
@@ -104,10 +93,9 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             })
             .build();
 
-    /** 监控：总入队、完成、超时 */
+    /** 监控：总入队、完成 */
     private final AtomicLong totalEnqueued = new AtomicLong(0);
     private final AtomicLong totalCompleted = new AtomicLong(0);
-    private final AtomicLong totalTimeout = new AtomicLong(0);
 
     private ScheduledExecutorService monitorScheduler;
 
@@ -136,19 +124,17 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         if (monitorScheduler != null) {
             monitorScheduler.shutdownNow();
         }
-        messageRunExecutor.shutdownNow();
         executorCache.invalidateAll();
     }
 
     private void logQueueStats() {
         long enqueued = totalEnqueued.get();
         long completed = totalCompleted.get();
-        long timeout = totalTimeout.get();
-        long backlog = enqueued - completed - timeout;
+        long backlog = enqueued - completed;
         if (backlog > BACKLOG_WARN_THRESHOLD) {
-            log.warn("WebSocket 队列积压: 入队={}, 完成={}, 超时={}, 积压={}", enqueued, completed, timeout, backlog);
+            log.warn("WebSocket 队列积压: 入队={}, 完成={}, 积压={}", enqueued, completed, backlog);
         } else {
-            log.debug("WebSocket 队列: 入队={}, 完成={}, 超时={}, 积压={}", enqueued, completed, timeout, backlog);
+            log.debug("WebSocket 队列: 入队={}, 完成={}, 积压={}", enqueued, completed, backlog);
         }
     }
 
@@ -201,25 +187,18 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             }
             ps.updateActiveTime();
             try {
-                CompletableFuture.runAsync(
-                        () -> processMessageInPlayerThread(ps, rawPayload),
-                        messageRunExecutor
-                ).get(MESSAGE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-                totalCompleted.incrementAndGet();
-            } catch (TimeoutException e) {
-                totalTimeout.incrementAndGet();
-                log.error("消息处理超时: sessionId={}, payload={}", ps.getSessionId(), rawPayload);
-                sendError(ps, TIMEOUT_MESSAGE);
+                processMessageInPlayerThread(ps, rawPayload);
             } catch (Exception e) {
-                totalCompleted.incrementAndGet();
                 log.error("消息处理异常: sessionId={}", ps.getSessionId(), e);
                 sendError(ps, "消息格式错误");
+            } finally {
+                totalCompleted.incrementAndGet();
             }
         });
     }
 
     /**
-     * 解析原始消息并分发。直接消息在 tomcat 线程调用；队列消息由 CompletableFuture 在 messageRunExecutor 中带超时调用。
+     * 解析原始消息并分发。直接消息在 tomcat 线程调用；队列消息在玩家单线程（ws-player-xxx）内调用，保证状态读写同线程可见。
      */
     private void processMessageInPlayerThread(PlayerSession playerSession, String rawPayload) {
         Map<String, Object> msg;
