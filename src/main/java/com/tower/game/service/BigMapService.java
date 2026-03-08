@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 /**
@@ -54,7 +55,10 @@ public class BigMapService {
             List<LayerVO> layerVOList = new ArrayList<>(mapLayers.size());
             for (BigMapLayer layer : mapLayers) {
                 List<Integer> options = parseOptions(layer.getOptions());
-                layerVOList.add(new LayerVO(options));
+                List<Integer> oneOption = options.isEmpty()
+                        ? Collections.emptyList()
+                        : Collections.singletonList(options.get(ThreadLocalRandom.current().nextInt(options.size())));
+                layerVOList.add(new LayerVO(oneOption));
             }
             bigMaps.add(new BigMapVO(map.getId(), map.getName(), layerVOList));
         }
