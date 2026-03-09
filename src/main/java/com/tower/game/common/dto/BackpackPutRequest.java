@@ -11,7 +11,7 @@ import lombok.Data;
 @Data
 public class BackpackPutRequest {
 
-    @NotNull(message = "玩家ID不能为空")
+    /** 当前写死用户，不传 */
     private Long playerId;
 
     @Min(0) @Max(4)

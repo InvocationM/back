@@ -31,13 +31,20 @@ public class BackpackController {
     private final PlayerBackpackItemService playerBackpackItemService;
     private final ItemService itemService;
 
+    /** 临时写死用户ID，后续改为从登录态获取 */
+    private static final long DEFAULT_PLAYER_ID = 1L;
+
     /**
      * 查询玩家背包：5 个 slot 状态 + 每 slot 放置列表
-     * GET /api/backpack?playerId=1
+     * POST /api/backpack（无入参，当前写死用户）
      */
-    @GetMapping
-    public ApiResponse<List<BackpackSlotVo>> getBackpack(@RequestParam Long playerId) {
+    @PostMapping
+    public ApiResponse<List<BackpackSlotVo>> getBackpack() {
+
+
+        long playerId = DEFAULT_PLAYER_ID;
         List<BackpackSlotVo> slots = new ArrayList<>();
+
         for (int slotIndex = 0; slotIndex < 5; slotIndex++) {
             int maxOrder = playerBackpackSlotService.getMaxUnlockedOrder(playerId, slotIndex);
             BackpackUnlockOrder next = playerBackpackSlotService.getNextUnlock(playerId, slotIndex);
@@ -79,12 +86,13 @@ public class BackpackController {
 
     /**
      * 放入背包
-     * POST /api/backpack/put
+     * POST /api/backpack/put（当前写死用户，请求体无需传 playerId）
      */
     @PostMapping("/put")
     public ApiResponse<Void> put(@Valid @RequestBody BackpackPutRequest request) {
-        playerBackpackItemService.validateAndPut(
-                request.getPlayerId(),
+        long playerId = DEFAULT_PLAYER_ID;
+         playerBackpackItemService.validateAndPut(
+                playerId,
                 request.getSlotIndex(),
                 request.getGridRow(),
                 request.getGridCol(),
