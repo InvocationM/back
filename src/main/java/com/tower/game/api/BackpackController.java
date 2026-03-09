@@ -36,9 +36,9 @@ public class BackpackController {
 
     /**
      * 查询玩家背包：5 个 slot 状态 + 每 slot 放置列表
-     * POST /api/backpack（无入参，当前写死用户）
+     * POST /api/backpack/getBackpack（无入参，当前写死用户）
      */
-    @PostMapping
+    @PostMapping("/getBackpack")
     public ApiResponse<List<BackpackSlotVo>> getBackpack() {
 
 

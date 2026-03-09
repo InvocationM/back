@@ -7,9 +7,6 @@ IGNORE INTO `player` (`id`, `username`, `password`, `nickname`, `level`, `exp`, 
 
 
 
-
-
-
 -- 怪物表插入数据
 INSERT INTO `monster` (`id`, `name`, `icon`, `attack`, `defence`, `maxhp`, `doge`, `accurate`, `crit`, `doublehit`,
                        `reflect`, `item`, `create_time`, `update_time`)
