@@ -1,6 +1,7 @@
 package com.tower.game.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.tower.game.common.exception.BusinessException;
 import com.tower.game.mapper.PlayerBackpackSlotMapper;
 import com.tower.game.model.entity.BackpackUnlockOrder;
 import com.tower.game.model.entity.PlayerBackpackSlot;
@@ -67,5 +68,18 @@ public class PlayerBackpackSlotService {
      */
     public int getMaxUnlockedOrder(Long playerId, int slotIndex) {
         return getOrCreate(playerId, slotIndex).getMaxUnlockedOrder();
+    }
+
+    /**
+     * 按序解锁：将对应 slot 的 max_unlocked_order + 1（暂不实现金币消耗）
+     * 若已达最大解锁序号则抛出 BusinessException
+     */
+    public void unlockNext(Long playerId, int slotIndex) {
+        PlayerBackpackSlot slot = getOrCreate(playerId, slotIndex);
+        if (slot.getMaxUnlockedOrder() >= BackpackUnlockOrderService.MAX_ORDER) {
+            throw new BusinessException("该背包位已全部解锁");
+        }
+        slot.setMaxUnlockedOrder(slot.getMaxUnlockedOrder() + 1);
+        playerBackpackSlotMapper.updateById(slot);
     }
 }

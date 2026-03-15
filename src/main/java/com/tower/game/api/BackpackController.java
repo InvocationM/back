@@ -3,6 +3,7 @@ package com.tower.game.api;
 import com.tower.game.common.dto.BackpackItemPlacementVo;
 import com.tower.game.common.dto.BackpackPutRequest;
 import com.tower.game.common.dto.BackpackSlotVo;
+import com.tower.game.common.dto.BackpackUnlockRequest;
 import com.tower.game.common.response.ApiResponse;
 import com.tower.game.model.entity.BackpackUnlockOrder;
 import com.tower.game.model.entity.Item;
@@ -98,6 +99,17 @@ public class BackpackController {
                 request.getGridCol(),
                 request.getItemId(),
                 request.getCount());
+        return ApiResponse.success(null);
+    }
+
+    /**
+     * 按序解锁：将对应 slot 的 max_unlocked_order + 1（暂不实现金币消耗）
+     * POST /api/backpack/unlock
+     */
+    @PostMapping("/unlock")
+    public ApiResponse<Void> unlock(@Valid @RequestBody BackpackUnlockRequest request) {
+        long playerId = DEFAULT_PLAYER_ID;
+        playerBackpackSlotService.unlockNext(playerId, request.getSlotIndex());
         return ApiResponse.success(null);
     }
 }
