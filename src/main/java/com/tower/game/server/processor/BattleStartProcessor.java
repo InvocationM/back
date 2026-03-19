@@ -13,7 +13,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import com.tower.game.common.dto.map.MapCachedItem;
+import com.tower.game.common.dto.map.MapLootCache;
+import com.tower.game.server.session.SessionState;
+
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -93,6 +99,31 @@ public class BattleStartProcessor implements MessageProcessor {
             result.setDrops(java.util.Collections.emptyList());
         }
 
+        // 战斗胜利且有掉落：缓存到 SessionState
+        String mapCacheId = null;
+        if (result.getType() == BattleResultType.Win && !result.getDrops().isEmpty()) {
+            SessionState state = session.getState();
+            mapCacheId = state.nextMapCacheId();
+
+            MapLootCache lootCache = new MapLootCache();
+            lootCache.setMapCacheId(mapCacheId);
+            lootCache.setCellX(cellX);
+            lootCache.setCellY(cellY);
+            lootCache.setSourceType("CORPSE");
+            lootCache.setSourceId(monsterId);
+
+            List<MapCachedItem> cachedItems = new ArrayList<>();
+            for (int i = 0; i < result.getDrops().size(); i++) {
+                var drop = result.getDrops().get(i);
+                cachedItems.add(new MapCachedItem(
+                        state.nextCachedItemId(mapCacheId, i),
+                        drop.getItemId(),
+                        drop.getCount()));
+            }
+            lootCache.setItems(cachedItems);
+            state.addLootCache(lootCache);
+        }
+
         Map<String, Object> response = new HashMap<>();
         response.put("type", MessageType.BATTLE_RESULT);
         response.put("code", 200);
@@ -100,6 +131,9 @@ public class BattleStartProcessor implements MessageProcessor {
         response.put("cellX", cellX != null ? cellX : -1);
         response.put("cellY", cellY != null ? cellY : -1);
         response.put("logs", result.getLogs());
+        if (mapCacheId != null) {
+            response.put("mapCacheId", mapCacheId);
+        }
         session.sendMessage(response);
 //        log.debug("战斗结束: userId={}, monsterId={}, type={}, result:{}", session.getUserId(), monsterId, result.getType(), JsonUtil.toJsonString(result));
     }

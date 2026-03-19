@@ -1,13 +1,16 @@
 package com.tower.game.api;
 
 import com.tower.game.common.dto.BackpackItemPlacementVo;
-import com.tower.game.common.dto.BackpackPutRequest;
+import com.tower.game.common.dto.BackpackMoveRequest;
 import com.tower.game.common.dto.BackpackSlotVo;
 import com.tower.game.common.dto.BackpackUnlockRequest;
+import com.tower.game.common.exception.BusinessException;
 import com.tower.game.common.response.ApiResponse;
 import com.tower.game.model.entity.BackpackUnlockOrder;
 import com.tower.game.model.entity.Item;
 import com.tower.game.model.entity.PlayerBackpackItem;
+import com.tower.game.server.session.PlayerSession;
+import com.tower.game.server.session.SessionManager;
 import com.tower.game.service.ItemService;
 import com.tower.game.service.PlayerBackpackItemService;
 import com.tower.game.service.PlayerBackpackSlotService;
@@ -31,6 +34,7 @@ public class BackpackController {
     private final PlayerBackpackSlotService playerBackpackSlotService;
     private final PlayerBackpackItemService playerBackpackItemService;
     private final ItemService itemService;
+    private final SessionManager sessionManager;
 
     /** 临时写死用户ID，后续改为从登录态获取 */
     private static final long DEFAULT_PLAYER_ID = 1L;
@@ -86,19 +90,15 @@ public class BackpackController {
     }
 
     /**
-     * 放入背包
-     * POST /api/backpack/put（当前写死用户，请求体无需传 playerId）
+     * 统一移动接口：地图→背包、背包→背包、背包→地图
+     * POST /api/backpack/move
      */
-    @PostMapping("/put")
-    public ApiResponse<Void> put(@Valid @RequestBody BackpackPutRequest request) {
+    @PostMapping("/move")
+    public ApiResponse<Void> move(@Valid @RequestBody BackpackMoveRequest request) {
         long playerId = DEFAULT_PLAYER_ID;
-         playerBackpackItemService.validateAndPut(
-                playerId,
-                request.getSlotIndex(),
-                request.getGridRow(),
-                request.getGridCol(),
-                request.getItemId(),
-                request.getCount());
+        PlayerSession session = sessionManager.getSessionByUserId(playerId);
+        if (session == null) throw new BusinessException("玩家未在线");
+        playerBackpackItemService.move(playerId, session.getState(), request);
         return ApiResponse.success(null);
     }
 

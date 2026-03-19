@@ -1,5 +1,7 @@
 package com.tower.game.server.session;
 
+import com.tower.game.common.dto.map.MapCachedItem;
+import com.tower.game.common.dto.map.MapLootCache;
 import com.tower.game.common.enums.GameStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -7,6 +9,10 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * 可序列化的玩家会话状态（用于内存/后续 Redis 等存储，与连接解耦）
@@ -54,6 +60,12 @@ public class SessionState implements Serializable {
     private String name;
     private String icon;
 
+    /** 地图上的物品缓存（尸体/宝箱），key = mapCacheId */
+    @Builder.Default
+    private Map<String, MapLootCache> mapLootCaches = new LinkedHashMap<>();
+    /** mapCacheId 自增序列 */
+    private long mapCacheIdSeq;
+
     /**
      * 是否已设置地图位置（已进图）
      */
@@ -72,5 +84,79 @@ public class SessionState implements Serializable {
     public void clearCurrentMapData() {
         this.currentMapId = null;
         this.currentMapData = null;
+    }
+
+    // ==================== 地图物品缓存操作 ====================
+
+    public String nextMapCacheId() {
+        return "loot_" + (++mapCacheIdSeq);
+    }
+
+    public String nextCachedItemId(String mapCacheId, int index) {
+        return mapCacheId + "_" + index;
+    }
+
+    public void addLootCache(MapLootCache cache) {
+        if (mapLootCaches == null) mapLootCaches = new LinkedHashMap<>();
+        mapLootCaches.put(cache.getMapCacheId(), cache);
+    }
+
+    public MapLootCache getLootCache(String mapCacheId) {
+        return mapLootCaches == null ? null : mapLootCaches.get(mapCacheId);
+    }
+
+    /** 在所有缓存中查找单个物品 */
+    public MapCachedItem findCachedItem(String cachedItemId) {
+        if (mapLootCaches == null) return null;
+        for (MapLootCache cache : mapLootCaches.values()) {
+            for (MapCachedItem item : cache.getItems()) {
+                if (item.getCachedItemId().equals(cachedItemId)) return item;
+            }
+        }
+        return null;
+    }
+
+    /** 移除单个缓存物品，items 为空时移除整个 lootCache */
+    public MapCachedItem removeCachedItem(String cachedItemId) {
+        if (mapLootCaches == null) return null;
+        Iterator<Map.Entry<String, MapLootCache>> it = mapLootCaches.entrySet().iterator();
+        while (it.hasNext()) {
+            MapLootCache cache = it.next().getValue();
+            Iterator<MapCachedItem> itemIt = cache.getItems().iterator();
+            while (itemIt.hasNext()) {
+                MapCachedItem item = itemIt.next();
+                if (item.getCachedItemId().equals(cachedItemId)) {
+                    itemIt.remove();
+                    if (cache.getItems().isEmpty()) it.remove();
+                    return item;
+                }
+            }
+        }
+        return null;
+    }
+
+    /** 背包丢回地图：在玩家当前位置创建或追加到已有缓存 */
+    public String addItemToMap(int itemId, int count) {
+        if (mapLootCaches == null) mapLootCaches = new LinkedHashMap<>();
+        // 查找当前位置已有的 DROP 类型缓存
+        for (MapLootCache cache : mapLootCaches.values()) {
+            if (cache.getCellX() == cellX && cache.getCellY() == cellY && "DROP".equals(cache.getSourceType())) {
+                String cachedItemId = cache.getMapCacheId() + "_" + cache.getItems().size();
+                cache.getItems().add(new MapCachedItem(cachedItemId, itemId, count));
+                return cachedItemId;
+            }
+        }
+        // 新建
+        String mapCacheId = nextMapCacheId();
+        MapLootCache cache = new MapLootCache();
+        cache.setMapCacheId(mapCacheId);
+        cache.setCellX(cellX);
+        cache.setCellY(cellY);
+        cache.setSourceType("DROP");
+        cache.setItems(new ArrayList<>());
+        String cachedItemId = mapCacheId + "_0";
+        cache.getItems().add(new MapCachedItem(cachedItemId, itemId, count));
+        mapLootCaches.put(mapCacheId, cache);
+        return cachedItemId;
     }
 }
