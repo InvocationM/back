@@ -14,10 +14,13 @@ import com.tower.game.server.session.SessionManager;
 import com.tower.game.service.ItemService;
 import com.tower.game.service.PlayerBackpackItemService;
 import com.tower.game.service.PlayerBackpackSlotService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.*;
-
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -37,7 +40,7 @@ public class BackpackController {
     private final SessionManager sessionManager;
 
     /** 临时写死用户ID，后续改为从登录态获取 */
-    private static final long DEFAULT_PLAYER_ID = 1L;
+    private static final long DEFAULT_PLAYER_ID = 1001L;
 
     /**
      * 查询玩家背包：5 个 slot 状态 + 每 slot 放置列表
