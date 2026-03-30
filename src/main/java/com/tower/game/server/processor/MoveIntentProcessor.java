@@ -6,6 +6,7 @@ import com.tower.game.server.session.PlayerSession;
 import com.tower.game.service.GameMapService;
 import com.tower.game.service.MapPathService;
 import com.tower.game.service.MapWalkableService;
+import com.tower.game.service.SessionMapRedisService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -29,6 +30,7 @@ public class MoveIntentProcessor implements MessageProcessor {
     private final MapWalkableService mapWalkableService;
     private final MapPathService mapPathService;
     private final GameMapService gameMapService;
+    private final SessionMapRedisService sessionMapRedisService;
 
     /** 确保 Session 中已加载该 mapId 的地图数据（用于复用，避免同请求内重复查库） */
     private void ensureSessionMapLoaded(PlayerSession session, int mapId) {
@@ -36,6 +38,7 @@ public class MoveIntentProcessor implements MessageProcessor {
         GameMap map = gameMapService.getByMapId(mapId);
         if (map != null && map.getData() != null && !map.getData().isBlank()) {
             session.setCurrentMapData(mapId, map.getData());
+            sessionMapRedisService.saveMapJson(session.getUserId(), mapId, map.getData());
         }
     }
 
@@ -64,6 +67,10 @@ public class MoveIntentProcessor implements MessageProcessor {
             ensureSessionMapLoaded(session, mapId);
             String mapData = session.getCurrentMapData();
             int[] entrance = mapWalkableService.findEntrance(mapId, mapData);
+            Integer prevMapId = session.getMapId();
+            if (prevMapId != null && !prevMapId.equals(mapId)) {
+                sessionMapRedisService.deleteMapJson(session.getUserId(), prevMapId);
+            }
             session.setMapId(mapId);
             session.setCellX(entrance[0]);
             session.setCellY(entrance[1]);
