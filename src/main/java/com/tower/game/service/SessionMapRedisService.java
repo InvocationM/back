@@ -17,6 +17,22 @@ public class SessionMapRedisService {
 
     private final StringRedisTemplate stringRedisTemplate;
 
+    /**
+     * 读取已缓存的地图 JSON（与 saveMapJson 使用同一 key）
+     */
+    public String getMapJson(Long userId, Integer mapId) {
+        if (userId == null || mapId == null) {
+            return null;
+        }
+        String key = buildKey(userId, mapId);
+        try {
+            return stringRedisTemplate.opsForValue().get(key);
+        } catch (Exception e) {
+            log.warn("Redis 读取地图 JSON 失败 userId={} mapId={}", userId, mapId, e);
+            return null;
+        }
+    }
+
     public void saveMapJson(Long userId, Integer mapId, String mapJson) {
         if (userId == null || mapId == null || mapJson == null || mapJson.isBlank()) {
             return;
