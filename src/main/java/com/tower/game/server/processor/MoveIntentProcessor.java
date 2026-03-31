@@ -1,9 +1,7 @@
 package com.tower.game.server.processor;
 
 import com.tower.game.common.constant.MessageType;
-import com.tower.game.model.entity.GameMap;
 import com.tower.game.server.session.PlayerSession;
-import com.tower.game.service.GameMapService;
 import com.tower.game.service.MapPathService;
 import com.tower.game.service.MapWalkableService;
 import com.tower.game.service.SessionMapRedisService;
@@ -29,17 +27,20 @@ public class MoveIntentProcessor implements MessageProcessor {
 
     private final MapWalkableService mapWalkableService;
     private final MapPathService mapPathService;
-    private final GameMapService gameMapService;
     private final SessionMapRedisService sessionMapRedisService;
 
-    /** 确保 Session 中已加载该 mapId 的地图数据（用于复用，避免同请求内重复查库） */
+    /**
+     * 确保 Session 中已加载该 mapId 的地图数据。
+     * 查找顺序：Session 内存 → Redis 缓存 → 报错（不查库）。
+     */
     private void ensureSessionMapLoaded(PlayerSession session, int mapId) {
         if (session.hasCurrentMapDataFor(mapId)) return;
-        GameMap map = gameMapService.getByMapId(mapId);
-        if (map != null && map.getData() != null && !map.getData().isBlank()) {
-            session.setCurrentMapData(mapId, map.getData());
-            sessionMapRedisService.saveMapJson(session.getUserId(), mapId, map.getData());
+        String json = sessionMapRedisService.getMapJson(session.getUserId(), mapId);
+        if (json != null && !json.isBlank()) {
+            session.setCurrentMapData(mapId, json);
+            return;
         }
+        throw new com.tower.game.common.exception.BusinessException(500, "地图缓存不存在，请先通过地图接口加载 mapId=" + mapId);
     }
 
     @Override

@@ -31,53 +31,47 @@ public class MapPathService {
      * 从 (fromX, fromY) 寻路到 (toX, toY)。
      * 若目标格为怪物/宝箱，则终点改为该格相邻的一格可通行格。
      *
+     * @param mapData 缓存的地图 JSON，不可为空
      * @return 路径格子列表（不含起点，含终点），无法到达则返回空列表
      */
-    public List<int[]> findPath(Integer mapId, int fromX, int fromY, int toX, int toY) {
-        return findPath(mapId, fromX, fromY, toX, toY, null);
-    }
-
-    /**
-     * 同上，可传入 Session 缓存的 mapData 避免重复查库。
-     */
-    public List<int[]> findPath(Integer mapId, int fromX, int fromY, int toX, int toY, String mapDataOverride) {
+    public List<int[]> findPath(Integer mapId, int fromX, int fromY, int toX, int toY, String mapData) {
         if (mapId == null) return List.of();
-        int[] size = mapWalkableService.getMapSize(mapId, mapDataOverride);
+        int[] size = mapWalkableService.getMapSize(mapId, mapData);
         int width = size[0], height = size[1];
         if (fromX < 0 || fromX >= width || fromY < 0 || fromY >= height) return List.of();
         if (toX < 0 || toX >= width || toY < 0 || toY >= height) return List.of();
-        if (!mapWalkableService.isWalkableForPathfinding(mapId, fromX, fromY, mapDataOverride)) return List.of();
+        if (!mapWalkableService.isWalkableForPathfinding(mapId, fromX, fromY, mapData)) return List.of();
 
         int endX = toX, endY = toY;
         boolean endIsEvent = false;
-        int[] cellEvent = mapWalkableService.getCellEvent(mapId, toX, toY, mapDataOverride);
+        int[] cellEvent = mapWalkableService.getCellEvent(mapId, toX, toY, mapData);
         if (cellEvent != null) {
             int eventType = cellEvent[0];
             if (eventType == EVENT_TYPE_MONSTER || eventType == EVENT_TYPE_CHEST) {
                 endIsEvent = true;
                 // 方案 A：路径终点仅为相邻可走格，不包含事件格本身
-            } else if (!mapWalkableService.isWalkableForPathfinding(mapId, toX, toY, mapDataOverride)) {
+            } else if (!mapWalkableService.isWalkableForPathfinding(mapId, toX, toY, mapData)) {
                 return List.of();
             }
         } else {
-            if (!mapWalkableService.isWalkableForPathfinding(mapId, toX, toY, mapDataOverride)) return List.of();
+            if (!mapWalkableService.isWalkableForPathfinding(mapId, toX, toY, mapData)) return List.of();
         }
 
         if (fromX == endX && fromY == endY) return List.of();
 
-        return aStar(mapId, mapDataOverride, width, height, fromX, fromY, endX, endY, endIsEvent);
+        return aStar(mapId, mapData, width, height, fromX, fromY, endX, endY, endIsEvent);
     }
 
-    private int[] getAdjacentWalkableForPathfinding(Integer mapId, String mapDataOverride, int x, int y) {
+    private int[] getAdjacentWalkableForPathfinding(Integer mapId, String mapData, int x, int y) {
         for (int[] d : NEIGHBORS) {
             int nx = x + d[0], ny = y + d[1];
-            if (mapWalkableService.isWalkableForPathfinding(mapId, nx, ny, mapDataOverride))
+            if (mapWalkableService.isWalkableForPathfinding(mapId, nx, ny, mapData))
                 return new int[]{nx, ny};
         }
         return null;
     }
 
-    private List<int[]> aStar(Integer mapId, String mapDataOverride, int width, int height, int fromX, int fromY, int endX, int endY, boolean endIsEvent) {
+    private List<int[]> aStar(Integer mapId, String mapData, int width, int height, int fromX, int fromY, int endX, int endY, boolean endIsEvent) {
         PriorityQueue<Node> open = new PriorityQueue<>(Comparator.comparingDouble(n -> n.f));
         Set<Long> closed = new HashSet<>();
         open.add(new Node(fromX, fromY, 0, manhattan(fromX, fromY, endX, endY), null));
@@ -99,7 +93,7 @@ public class MapPathService {
                     // 方案 A：路径只到相邻格，不包含事件格；终点为 cur（怪物/宝箱面前的格）
                     return buildPathFromNode(cur, fromX, fromY);
                 }
-                if (!mapWalkableService.isWalkableForPathfinding(mapId, nx, ny, mapDataOverride)) continue;
+                if (!mapWalkableService.isWalkableForPathfinding(mapId, nx, ny, mapData)) continue;
                 if (closed.contains(key(nx, ny))) continue;
 
                 double g = cur.g + 1;
