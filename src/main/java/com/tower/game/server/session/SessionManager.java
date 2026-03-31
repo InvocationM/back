@@ -1,5 +1,6 @@
 package com.tower.game.server.session;
 
+import com.tower.game.model.entity.PlayerAttribute;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketSession;
@@ -27,14 +28,14 @@ public class SessionManager {
     /**
      * 创建会话
      */
-    public PlayerSession createSession(Long userId, String username, WebSocketSession webSocketSession) {
+    public PlayerSession createSession(Long userId, String username, PlayerAttribute attr, WebSocketSession webSocketSession) {
         // 如果用户已有会话，先关闭旧会话
         PlayerSession oldSession = userIdToSession.get(userId);
         if (oldSession != null) {
             removeSession(oldSession.getWebSocketSession());
         }
 
-        PlayerSession session = new PlayerSession(userId, username, webSocketSession);
+        PlayerSession session = new PlayerSession(userId, username, attr, webSocketSession);
         sessions.put(session.getSessionId(), session);
         sessionToPlayer.put(webSocketSession, session);
         userIdToSession.put(userId, session);

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tower.game.common.constant.MessageType;
 import com.tower.game.common.enums.GameStatus;
+import com.tower.game.model.entity.PlayerAttribute;
 import com.tower.game.util.JsonUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.socket.TextMessage;
@@ -26,7 +27,7 @@ public class PlayerSession {
     private final SessionState state;
     private final WebSocketSession webSocketSession;
 
-    public PlayerSession(Long userId, String username, WebSocketSession webSocketSession) {
+    public PlayerSession(Long userId, String username, PlayerAttribute attr, WebSocketSession webSocketSession) {
         String sessionId = generateSessionId();
         long now = System.currentTimeMillis();
         this.state = SessionState.builder()
@@ -39,17 +40,17 @@ public class PlayerSession {
                 .cellY(-1)
                 .loginTime(now)
                 .lastActiveTime(now)
-                .hp(100)
-                .maxHp(100)
-                .attack(10)
-                .defence(5)
-                .dodge(0)
-                .accurate(0)
-                .crit(0)
-                .doublehit(0)
-                .reflect(0)
-                .name("玩家")
-                .icon("PLAYER1")
+                .hp(attr.getHp() != null ? attr.getHp() : 100)
+                .maxHp(attr.getMaxHp() != null ? attr.getMaxHp() : 100)
+                .attack(attr.getAttack() != null ? attr.getAttack() : 10)
+                .defence(attr.getDefence() != null ? attr.getDefence() : 5)
+                .dodge(attr.getDodge() != null ? attr.getDodge() : 0)
+                .accurate(attr.getAccurate() != null ? attr.getAccurate() : 0)
+                .crit(attr.getCrit() != null ? attr.getCrit() : 0)
+                .doublehit(attr.getDoublehit() != null ? attr.getDoublehit() : 0)
+                .reflect(attr.getReflect() != null ? attr.getReflect() : 0)
+                .name(attr.getName() != null ? attr.getName() : "玩家")
+                .icon(attr.getIcon() != null ? attr.getIcon() : "PLAYER1")
                 .build();
         this.webSocketSession = webSocketSession;
     }

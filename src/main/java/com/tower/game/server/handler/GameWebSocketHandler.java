@@ -5,11 +5,13 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.RemovalCause;
 import com.tower.game.common.constant.MessageType;
+import com.tower.game.model.entity.PlayerAttribute;
 import com.tower.game.server.processor.MessageProcessor;
 import com.tower.game.util.JsonUtil;
 import com.tower.game.server.processor.MessageProcessorRegistry;
 import com.tower.game.server.session.PlayerSession;
 import com.tower.game.server.session.SessionManager;
+import com.tower.game.service.PlayerAttributeService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -106,6 +108,9 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     @Autowired
     private MessageProcessorRegistry processorRegistry;
 
+    @Autowired
+    private PlayerAttributeService playerAttributeService;
+
     @PostConstruct
     public void startMonitor() {
         monitorScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
@@ -142,7 +147,13 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         log.info("WebSocket客户端连接: {}", session.getRemoteAddress());
-        PlayerSession playerSession = sessionManager.createSession(TEST_USER_ID, TEST_USERNAME, session);
+        PlayerAttribute attr = playerAttributeService.getByPlayerId(TEST_USER_ID);
+        if (attr == null) {
+            log.error("玩家属性不存在: userId={}", TEST_USER_ID);
+            session.close();
+            return;
+        }
+        PlayerSession playerSession = sessionManager.createSession(TEST_USER_ID, TEST_USERNAME, attr, session);
         log.info("自动创建测试用户会话: sessionId={}, userId={}, username={}",
                 playerSession.getSessionId(), TEST_USER_ID, TEST_USERNAME);
         sendWelcomeMessage(playerSession);
@@ -154,8 +165,13 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
         PlayerSession playerSession = sessionManager.getSession(session);
         if (playerSession == null) {
+            PlayerAttribute attr = playerAttributeService.getByPlayerId(TEST_USER_ID);
+            if (attr == null) {
+                log.error("玩家属性不存在: userId={}", TEST_USER_ID);
+                return;
+            }
             log.info("自动创建测试用户会话: userId={}, username={}", TEST_USER_ID, TEST_USERNAME);
-            playerSession = sessionManager.createSession(TEST_USER_ID, TEST_USERNAME, session);
+            playerSession = sessionManager.createSession(TEST_USER_ID, TEST_USERNAME, attr, session);
         }
         playerSession.updateActiveTime();
 

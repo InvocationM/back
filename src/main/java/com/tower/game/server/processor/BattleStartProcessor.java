@@ -4,11 +4,13 @@ import com.tower.game.common.constant.MessageType;
 import com.tower.game.common.dto.battle.BattleResultDto;
 import com.tower.game.common.dto.battle.BattleResultType;
 import com.tower.game.common.enums.GameStatus;
+import com.tower.game.model.entity.PlayerAttribute;
 import com.tower.game.server.session.PlayerSession;
 import com.tower.game.service.BattleEngineService;
 import com.tower.game.service.DropRollService;
 import com.tower.game.service.MapWalkableService;
 import com.tower.game.service.MonsterService;
+import com.tower.game.service.PlayerAttributeService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -38,6 +40,7 @@ public class BattleStartProcessor implements MessageProcessor {
     private final MonsterService monsterService;
     private final DropRollService dropRollService;
     private final MapWalkableService mapWalkableService;
+    private final PlayerAttributeService playerAttributeService;
 
     @Override
     public void handle(PlayerSession session, Object message) {
@@ -90,6 +93,13 @@ public class BattleStartProcessor implements MessageProcessor {
 
         session.setHp(result.getPlayerCurrentHp());
         session.setGameStatus(GameStatus.IN_GAME);
+
+        // HP 回写数据库
+        PlayerAttribute attr = playerAttributeService.getByPlayerId(session.getUserId());
+        if (attr != null) {
+            attr.setHp(result.getPlayerCurrentHp());
+            playerAttributeService.updateById(attr);
+        }
         // 方案 A：胜利后不更新玩家到怪物格，保持在与怪物相邻格
 
         if (result.getType() == BattleResultType.Win && monster.getItem() != null && !monster.getItem().isBlank()) {

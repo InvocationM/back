@@ -14,6 +14,27 @@ CREATE TABLE IF NOT EXISTS `player` (
     KEY `idx_level` (`level`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='玩家表';
 
+-- 玩家属性表（战斗属性，与 player 通过 player_id 关联，一对一）
+CREATE TABLE IF NOT EXISTS `player_attribute` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+    `player_id` BIGINT NOT NULL COMMENT '玩家ID',
+    `hp` INT NOT NULL DEFAULT 100 COMMENT '当前血量',
+    `max_hp` INT NOT NULL DEFAULT 100 COMMENT '最大血量',
+    `attack` INT NOT NULL DEFAULT 10 COMMENT '攻击力',
+    `defence` INT NOT NULL DEFAULT 5 COMMENT '防御力',
+    `dodge` INT NOT NULL DEFAULT 0 COMMENT '闪避值',
+    `accurate` INT NOT NULL DEFAULT 0 COMMENT '命中值',
+    `crit` INT NOT NULL DEFAULT 0 COMMENT '暴击值',
+    `doublehit` INT NOT NULL DEFAULT 0 COMMENT '连击值',
+    `reflect` INT NOT NULL DEFAULT 0 COMMENT '反伤值',
+    `name` VARCHAR(64) NOT NULL DEFAULT '玩家' COMMENT '战斗显示名',
+    `icon` VARCHAR(64) NOT NULL DEFAULT 'PLAYER1' COMMENT '战斗头像',
+    `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_player_id` (`player_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='玩家属性表';
+
 -- 地图表（单表，整份 JSON 存 data）
 CREATE TABLE IF NOT EXISTS `game_map` (
     `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',

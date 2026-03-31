@@ -5,6 +5,12 @@ IGNORE INTO `player` (`id`, `username`, `password`, `nickname`, `level`, `exp`, 
 (2, 'player2', 'e10adc3949ba59abbe56e057f20f883e', '玩家二', 3, 500, 2, NOW(), NOW()),
 (3, 'player3', 'e10adc3949ba59abbe56e057f20f883e', '玩家三', 5, 1200, 4, NOW(), NOW());
 
+-- 玩家属性表初始化数据
+INSERT IGNORE INTO `player_attribute` (`player_id`, `hp`, `max_hp`, `attack`, `defence`, `dodge`, `accurate`, `crit`, `doublehit`, `reflect`, `name`, `icon`) VALUES
+(1, 100, 100, 10, 5, 0, 0, 0, 0, 0, '玩家一', 'PLAYER1'),
+(2, 150, 150, 15, 8, 5, 5, 5, 0, 0, '玩家二', 'PLAYER1'),
+(3, 200, 200, 20, 10, 10, 10, 10, 5, 0, '玩家三', 'PLAYER1');
+
 
 
 -- 怪物表插入数据
