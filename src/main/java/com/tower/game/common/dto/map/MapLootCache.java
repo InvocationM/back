@@ -29,4 +29,9 @@ public class MapLootCache implements Serializable {
     /** 怪物尸体为 monsterId；地图事件格宝箱为 chest 配置 id */
     private Integer sourceId;
     private List<MapCachedItem> items = new ArrayList<>();
+    /**
+     * 待开箱的掉落配置快照（与 Monster.item 同格式）。非空表示尚未在 4001 中 roll；
+     * 首次开箱后应置空，items 为 roll 结果（可为空列表）。
+     */
+    private String pendingItemConfig;
 }

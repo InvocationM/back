@@ -8,6 +8,7 @@ import com.tower.game.common.dto.map.MapLootCacheVo;
 import com.tower.game.model.entity.Item;
 import com.tower.game.server.session.PlayerSession;
 import com.tower.game.server.session.SessionState;
+import com.tower.game.service.DropRollService;
 import com.tower.game.service.ItemService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +28,7 @@ import java.util.Map;
 public class ItemPickupProcessor implements MessageProcessor {
 
     private final ItemService itemService;
+    private final DropRollService dropRollService;
 
     @Override
     public void handle(PlayerSession session, Object message) {
@@ -48,6 +50,8 @@ public class ItemPickupProcessor implements MessageProcessor {
             sendFail(session, "该缓存不存在或已被拾取完");
             return;
         }
+
+        resolvePendingLootIfNeeded(cache, state);
 
         // 查询物品详情
         List<Integer> itemIds = cache.getItems().stream()
@@ -85,6 +89,30 @@ public class ItemPickupProcessor implements MessageProcessor {
     @Override
     public int getMessageType() {
         return MessageType.ITEM_PICKUP;
+    }
+
+    /**
+     * 战斗宝箱等：首次开箱时对 pendingItemConfig 做一次 roll 并写入 items，再清空待解析字段。
+     */
+    private void resolvePendingLootIfNeeded(MapLootCache cache, SessionState state) {
+        synchronized (cache) {
+            String pending = cache.getPendingItemConfig();
+            if (pending == null || pending.isBlank()) {
+                return;
+            }
+            var drops = dropRollService.parseAndRoll(pending);
+            cache.setPendingItemConfig(null);
+            String mapCacheId = cache.getMapCacheId();
+            List<MapCachedItem> list = new ArrayList<>();
+            for (int i = 0; i < drops.size(); i++) {
+                var d = drops.get(i);
+                list.add(new MapCachedItem(
+                        state.nextCachedItemId(mapCacheId, i),
+                        d.getItemId(),
+                        d.getCount()));
+            }
+            cache.setItems(list);
+        }
     }
 
     private void sendFail(PlayerSession session, String message) {

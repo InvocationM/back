@@ -7,7 +7,6 @@ import com.tower.game.common.enums.GameStatus;
 import com.tower.game.model.entity.PlayerAttribute;
 import com.tower.game.server.session.PlayerSession;
 import com.tower.game.service.BattleEngineService;
-import com.tower.game.service.DropRollService;
 import com.tower.game.service.MapWalkableService;
 import com.tower.game.service.MonsterService;
 import com.tower.game.service.PlayerAttributeService;
@@ -15,11 +14,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-import com.tower.game.common.dto.map.MapCachedItem;
 import com.tower.game.common.dto.map.MapLootCache;
 import com.tower.game.server.session.SessionState;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,7 +24,7 @@ import java.util.Map;
 /**
  * 战斗开始处理器（方案 A）：收到 BATTLE_START(3001)，校验玩家在怪物格相邻、该格确有该怪，执行战斗并回发 BATTLE_RESULT(3003)。
  * 胜利后不更新玩家位置到怪物格，保持在与怪物相邻格。
- * <p>3003 成功体：{@code { type, code, data }}，与 4001 一致；具体掉落物品不在此包内，{@code data.rewardChest} 非空时用其 {@code mapCacheId} 发 4001 再入包。
+ * <p>3003 成功体：{@code { type, code, data }}；胜利宝箱仅写入待开箱配置，随机掉落发生在首次 4001。
  */
 @Slf4j
 @Component
@@ -39,7 +36,6 @@ public class BattleStartProcessor implements MessageProcessor {
 
     private final BattleEngineService battleEngineService;
     private final MonsterService monsterService;
-    private final DropRollService dropRollService;
     private final MapWalkableService mapWalkableService;
     private final PlayerAttributeService playerAttributeService;
 
@@ -103,16 +99,13 @@ public class BattleStartProcessor implements MessageProcessor {
         }
         // 方案 A：胜利后不更新玩家到怪物格，保持在与怪物相邻格
 
-        if (result.getType() == BattleResultType.Win && monster.getItem() != null && !monster.getItem().isBlank()) {
-            result.setDrops(dropRollService.parseAndRoll(monster.getItem()));
-        }
         if (result.getDrops() == null) {
             result.setDrops(java.util.Collections.emptyList());
         }
 
-        // 战斗胜利且有掉落：缓存到 SessionState
+        // 战斗胜利且怪物配置了掉落字符串：缓存待开箱宝箱（roll 推迟到首次 4001）
         String mapCacheId = null;
-        if (result.getType() == BattleResultType.Win && !result.getDrops().isEmpty()) {
+        if (result.getType() == BattleResultType.Win && monster.getItem() != null && !monster.getItem().isBlank()) {
             SessionState state = session.getState();
             mapCacheId = state.nextMapCacheId();
 
@@ -122,16 +115,7 @@ public class BattleStartProcessor implements MessageProcessor {
             lootCache.setCellY(cellY);
             lootCache.setSourceType("CHEST");
             lootCache.setSourceId(monsterId);
-
-            List<MapCachedItem> cachedItems = new ArrayList<>();
-            for (int i = 0; i < result.getDrops().size(); i++) {
-                var drop = result.getDrops().get(i);
-                cachedItems.add(new MapCachedItem(
-                        state.nextCachedItemId(mapCacheId, i),
-                        drop.getItemId(),
-                        drop.getCount()));
-            }
-            lootCache.setItems(cachedItems);
+            lootCache.setPendingItemConfig(monster.getItem());
             state.addLootCache(lootCache);
         }
 
