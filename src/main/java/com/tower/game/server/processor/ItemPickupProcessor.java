@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 开箱处理器（4001）：查看地图上尸体/宝箱内的物品列表
+ * 开箱处理器（4001）：查看地图上尸体/战斗宝箱缓存内的物品列表
  */
 @Slf4j
 @Component

@@ -27,6 +27,7 @@ import java.util.Map;
 /**
  * 战斗开始处理器（方案 A）：收到 BATTLE_START(3001)，校验玩家在怪物格相邻、该格确有该怪，执行战斗并回发 BATTLE_RESULT(3003)。
  * 胜利后不更新玩家位置到怪物格，保持在与怪物相邻格。
+ * 胜利掉落：3003 中 result.drops 恒为空；客户端用 lootChest + 4001 开箱查看物品并入包。
  */
 @Slf4j
 @Component
@@ -119,7 +120,7 @@ public class BattleStartProcessor implements MessageProcessor {
             lootCache.setMapCacheId(mapCacheId);
             lootCache.setCellX(cellX);
             lootCache.setCellY(cellY);
-            lootCache.setSourceType("CORPSE");
+            lootCache.setSourceType("CHEST");
             lootCache.setSourceId(monsterId);
 
             List<MapCachedItem> cachedItems = new ArrayList<>();
@@ -158,14 +159,7 @@ public class BattleStartProcessor implements MessageProcessor {
         m.put("type", r.getType().name());
         m.put("playerCurrentHp", r.getPlayerCurrentHp());
         m.put("totalRounds", r.getTotalRounds());
-        m.put("drops", r.getDrops().stream()
-                .map(d -> {
-                    Map<String, Object> e = new HashMap<>();
-                    e.put("itemId", d.getItemId());
-                    e.put("count", d.getCount());
-                    return e;
-                })
-                .toList());
+        m.put("drops", List.of());
         return m;
     }
 

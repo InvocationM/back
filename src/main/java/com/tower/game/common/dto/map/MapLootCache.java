@@ -21,9 +21,12 @@ public class MapLootCache implements Serializable {
     private String mapCacheId;
     private int cellX;
     private int cellY;
-    /** "CORPSE" 或 "CHEST" */
+    /**
+     * "CORPSE" 尸体、"CHEST" 宝箱表现。
+     * 战斗胜利地图缓存为 CHEST，此时 sourceId 为击败的 monsterId（非配置表 chestId）。
+     */
     private String sourceType;
-    /** monsterId 或 chestId */
+    /** 怪物尸体为 monsterId；地图事件格宝箱为 chest 配置 id */
     private Integer sourceId;
     private List<MapCachedItem> items = new ArrayList<>();
 }
