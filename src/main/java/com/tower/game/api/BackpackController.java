@@ -101,7 +101,7 @@ public class BackpackController {
         long playerId = DEFAULT_PLAYER_ID;
         PlayerSession session = sessionManager.getSessionByUserId(playerId);
         if (session == null) throw new BusinessException("玩家未在线");
-        playerBackpackItemService.move(playerId, session.getState(), request);
+        playerBackpackItemService.move(playerId, session.authoritativeState(), request);
         return ApiResponse.success(null);
     }
 

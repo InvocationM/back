@@ -44,7 +44,7 @@ public class ItemPickupProcessor implements MessageProcessor {
             return;
         }
 
-        SessionState state = session.getState();
+        SessionState state = session.authoritativeState();
         MapLootCache cache = state.getLootCache(mapCacheId);
         if (cache == null) {
             sendFail(session, "该缓存不存在或已被拾取完");

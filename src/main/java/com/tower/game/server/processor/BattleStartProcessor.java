@@ -106,17 +106,20 @@ public class BattleStartProcessor implements MessageProcessor {
         // 战斗胜利且怪物配置了掉落字符串：缓存待开箱宝箱（roll 推迟到首次 4001）
         String mapCacheId = null;
         if (result.getType() == BattleResultType.Win && monster.getItem() != null && !monster.getItem().isBlank()) {
-            SessionState state = session.getState();
-            mapCacheId = state.nextMapCacheId();
-
-            MapLootCache lootCache = new MapLootCache();
-            lootCache.setMapCacheId(mapCacheId);
-            lootCache.setCellX(cellX);
-            lootCache.setCellY(cellY);
-            lootCache.setSourceType("CHEST");
-            lootCache.setSourceId(monsterId);
-            lootCache.setPendingItemConfig(monster.getItem());
-            state.addLootCache(lootCache);
+            String[] mapCacheIdHolder = new String[1];
+            session.updateState(s -> {
+                String id = s.nextMapCacheId();
+                mapCacheIdHolder[0] = id;
+                MapLootCache lootCache = new MapLootCache();
+                lootCache.setMapCacheId(id);
+                lootCache.setCellX(cellX);
+                lootCache.setCellY(cellY);
+                lootCache.setSourceType("CHEST");
+                lootCache.setSourceId(monsterId);
+                lootCache.setPendingItemConfig(monster.getItem());
+                s.addLootCache(lootCache);
+            });
+            mapCacheId = mapCacheIdHolder[0];
         }
 
         Map<String, Object> response = new HashMap<>();

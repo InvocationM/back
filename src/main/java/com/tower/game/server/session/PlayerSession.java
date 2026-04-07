@@ -106,7 +106,17 @@ public class PlayerSession {
     public WebSocketSession getWebSocketSession() { return webSocketSession; }
 
     /**
-     * 获取当前会话状态快照（副本，避免外部直接修改内部状态）
+     * 内存中的权威会话状态（含 {@link SessionState#getMapLootCaches()} 等）。
+     * 供服务端 Processor、Controller 读写开箱缓存、地图入包等；勿向不可信逻辑暴露可写引用。
+     * <p>注意：{@link #getState()} 快照未拷贝地图掉落缓存，不能用于 4001 / 地图拾取。
+     */
+    public SessionState authoritativeState() {
+        return state;
+    }
+
+    /**
+     * 获取当前会话状态快照（副本，避免外部直接修改内部状态）。
+     * 未包含 {@code mapLootCaches} / {@code mapCacheIdSeq}，仅适合只读展示或非掉落相关逻辑。
      */
     public SessionState getState() {
         return SessionState.builder()
