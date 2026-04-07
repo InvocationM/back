@@ -27,7 +27,7 @@ import java.util.Map;
 /**
  * 战斗开始处理器（方案 A）：收到 BATTLE_START(3001)，校验玩家在怪物格相邻、该格确有该怪，执行战斗并回发 BATTLE_RESULT(3003)。
  * 胜利后不更新玩家位置到怪物格，保持在与怪物相邻格。
- * 胜利掉落：3003 中 result.drops 恒为空；客户端用 lootChest + 4001 开箱查看物品并入包。
+ * <p>3003 成功体：{@code { type, code, data }}，与 4001 一致；具体掉落物品不在此包内，{@code data.rewardChest} 非空时用其 {@code mapCacheId} 发 4001 再入包。
  */
 @Slf4j
 @Component
@@ -138,13 +138,7 @@ public class BattleStartProcessor implements MessageProcessor {
         Map<String, Object> response = new HashMap<>();
         response.put("type", MessageType.BATTLE_RESULT);
         response.put("code", 200);
-        response.put("result", toResultMap(result));
-        response.put("cellX", cellX != null ? cellX : -1);
-        response.put("cellY", cellY != null ? cellY : -1);
-        response.put("logs", result.getLogs());
-        if (mapCacheId != null) {
-            response.put("mapCacheId", mapCacheId);
-        }
+        response.put("data", buildBattleResultData(result, monsterId, cellX, cellY, mapCacheId));
         session.sendMessage(response);
 //        log.debug("战斗结束: userId={}, monsterId={}, type={}, result:{}", session.getUserId(), monsterId, result.getType(), JsonUtil.toJsonString(result));
     }
@@ -154,13 +148,37 @@ public class BattleStartProcessor implements MessageProcessor {
         return MessageType.BATTLE_START;
     }
 
-    private Map<String, Object> toResultMap(BattleResultDto r) {
-        Map<String, Object> m = new HashMap<>();
-        m.put("type", r.getType().name());
-        m.put("playerCurrentHp", r.getPlayerCurrentHp());
-        m.put("totalRounds", r.getTotalRounds());
-        m.put("drops", List.of());
-        return m;
+    /**
+     * 3003 成功载荷：结局、战斗统计、目标格、可选胜利宝箱（开箱走 4001）。
+     */
+    private Map<String, Object> buildBattleResultData(BattleResultDto r, int monsterId, int cellX, int cellY,
+                                                        String mapCacheId) {
+        Map<String, Object> data = new HashMap<>();
+        data.put("outcome", r.getType().name());
+
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("playerCurrentHp", r.getPlayerCurrentHp());
+        stats.put("monsterCurrentHp", r.getMonsterCurrentHp());
+        stats.put("totalRounds", r.getTotalRounds());
+        data.put("stats", stats);
+
+        data.put("logs", r.getLogs() != null ? r.getLogs() : List.of());
+
+        Map<String, Object> target = new HashMap<>();
+        target.put("monsterId", monsterId);
+        target.put("cell", Map.of("x", cellX, "y", cellY));
+        data.put("target", target);
+
+        if (mapCacheId != null) {
+            Map<String, Object> chest = new HashMap<>();
+            chest.put("mapCacheId", mapCacheId);
+            chest.put("cell", Map.of("x", cellX, "y", cellY));
+            chest.put("sourceType", "CHEST");
+            data.put("rewardChest", chest);
+        } else {
+            data.put("rewardChest", null);
+        }
+        return data;
     }
 
     private void sendFail(PlayerSession session, String message) {
