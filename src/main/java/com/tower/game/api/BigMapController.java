@@ -1,5 +1,6 @@
 package com.tower.game.api;
 
+import com.tower.game.common.dto.bigmap.BigMapListResponse;
 import com.tower.game.common.dto.bigmap.BigMapStartRequest;
 import com.tower.game.common.dto.bigmap.BigMapVO;
 import com.tower.game.common.exception.BusinessException;
@@ -23,6 +24,14 @@ public class BigMapController {
     private static final long DEFAULT_PLAYER_ID = 1001L;
 
     private final BigMapService bigMapService;
+
+    /**
+     * 大章节列表：id、name、层数（只读，不含每层随机 mapId）。body 可为空。
+     */
+    @PostMapping("/bigMapList")
+    public ApiResponse<BigMapListResponse> bigMapList() {
+        return ApiResponse.success(bigMapService.listAllChapters());
+    }
 
     /**
      * 开始指定章节：随机锁定每层 mapId 并写入 Redis，返回本章 id、name、layers（每层 options 仅一个 mapId）。

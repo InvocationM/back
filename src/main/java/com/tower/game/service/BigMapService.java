@@ -2,6 +2,8 @@ package com.tower.game.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.tower.game.common.dto.bigmap.BigMapListItemVO;
+import com.tower.game.common.dto.bigmap.BigMapListResponse;
 import com.tower.game.common.dto.bigmap.BigMapRunState;
 import com.tower.game.common.dto.bigmap.BigMapVO;
 import com.tower.game.common.dto.bigmap.LayerVO;
@@ -17,7 +19,9 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
 
 /**
  * 大章节：开局生成锁定路线并写入 Redis，供移动与出口进层校验。
@@ -29,6 +33,26 @@ public class BigMapService {
     private final BigMapMapper bigMapMapper;
     private final BigMapLayerMapper bigMapLayerMapper;
     private final BigMapRunRedisService bigMapRunRedisService;
+
+    /**
+     * 查询全部大章节元数据（id、name、层数），不写 Redis、不做每层随机。
+     */
+    public BigMapListResponse listAllChapters() {
+        List<BigMap> maps = bigMapMapper.selectList(
+                new LambdaQueryWrapper<BigMap>().orderByAsc(BigMap::getId));
+        if (maps == null || maps.isEmpty()) {
+            return new BigMapListResponse(Collections.emptyList());
+        }
+        List<BigMapLayer> allLayers = bigMapLayerMapper.selectList(new LambdaQueryWrapper<>());
+        Map<Integer, Long> countByBigMapId = allLayers == null ? Map.of() : allLayers.stream()
+                .collect(Collectors.groupingBy(BigMapLayer::getBigMapId, Collectors.counting()));
+        List<BigMapListItemVO> items = new ArrayList<>(maps.size());
+        for (BigMap m : maps) {
+            int n = countByBigMapId.getOrDefault(m.getId(), 0L).intValue();
+            items.add(new BigMapListItemVO(m.getId(), m.getName(), n));
+        }
+        return new BigMapListResponse(items);
+    }
 
     /**
      * 开始指定大章节：每层从 options 随机一张小地图，写入 run，返回本章结构与各层 mapId。
