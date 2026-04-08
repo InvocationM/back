@@ -86,6 +86,14 @@ public class SessionState implements Serializable {
         this.currentMapData = null;
     }
 
+    /** 清空地图掉落/宝箱缓存（换层时调用） */
+    public void clearMapLootCaches() {
+        if (mapLootCaches != null) {
+            mapLootCaches.clear();
+        }
+        this.mapCacheIdSeq = 0;
+    }
+
     // ==================== 地图物品缓存操作 ====================
 
     public String nextMapCacheId() {

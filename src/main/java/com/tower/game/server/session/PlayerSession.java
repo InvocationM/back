@@ -103,6 +103,10 @@ public class PlayerSession {
     public boolean hasCurrentMapDataFor(Integer mapId) { return state.hasCurrentMapDataFor(mapId); }
     public void clearCurrentMapData() { state.clearCurrentMapData(); }
 
+    public void clearMapLootCaches() {
+        state.clearMapLootCaches();
+    }
+
     public WebSocketSession getWebSocketSession() { return webSocketSession; }
 
     /**

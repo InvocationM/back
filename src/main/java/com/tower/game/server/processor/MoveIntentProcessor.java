@@ -1,7 +1,9 @@
 package com.tower.game.server.processor;
 
 import com.tower.game.common.constant.MessageType;
+import com.tower.game.common.dto.bigmap.BigMapRunState;
 import com.tower.game.server.session.PlayerSession;
+import com.tower.game.service.BigMapRunRedisService;
 import com.tower.game.service.MapPathService;
 import com.tower.game.service.MapWalkableService;
 import com.tower.game.service.SessionMapRedisService;
@@ -28,6 +30,7 @@ public class MoveIntentProcessor implements MessageProcessor {
     private final MapWalkableService mapWalkableService;
     private final MapPathService mapPathService;
     private final SessionMapRedisService sessionMapRedisService;
+    private final BigMapRunRedisService bigMapRunRedisService;
 
     /**
      * 确保 Session 中已加载该 mapId 的地图数据。
@@ -62,9 +65,28 @@ public class MoveIntentProcessor implements MessageProcessor {
         }
 
         Integer mapIdParam = getInt(msg, "mapId");
-        int mapId = mapIdParam != null ? mapIdParam : DEFAULT_MAP_ID;
 
         if (!session.hasPosition()) {
+            if (mapIdParam == null) {
+                sendFail(session, "首次进图请指定 mapId", null, null, seqId);
+                return;
+            }
+            int mapId = mapIdParam;
+            BigMapRunState run = bigMapRunRedisService.getRun(session.getUserId()).orElse(null);
+            if (run == null || run.getLayerMapIds() == null || run.getLayerMapIds().isEmpty()) {
+                sendFail(session, "请先调用 POST /api/big-map/start 开始章节", null, null, seqId);
+                return;
+            }
+            int li = run.getLayerIndex();
+            if (li < 0 || li >= run.getLayerMapIds().size()) {
+                sendFail(session, "章节进度异常", null, null, seqId);
+                return;
+            }
+            int expectedMapId = run.getLayerMapIds().get(li);
+            if (mapId != expectedMapId) {
+                sendFail(session, "mapId 与当前章节层不一致，期望 " + expectedMapId, null, null, seqId);
+                return;
+            }
             ensureSessionMapLoaded(session, mapId);
             String mapData = session.getCurrentMapData();
             int[] entrance = mapWalkableService.findEntrance(mapId, mapData);
@@ -82,7 +104,14 @@ public class MoveIntentProcessor implements MessageProcessor {
         int fromX = session.getCellX();
         int fromY = session.getCellY();
         Integer sessionMapId = session.getMapId();
-        if (sessionMapId == null) sessionMapId = DEFAULT_MAP_ID;
+        if (sessionMapId == null) {
+            sessionMapId = DEFAULT_MAP_ID;
+        }
+
+        if (mapIdParam != null && session.getMapId() != null && !mapIdParam.equals(session.getMapId())) {
+            sendFail(session, "切换小地图请使用出口协议 type=5010 (BIG_MAP_USE_EXIT)", fromX, fromY, seqId);
+            return;
+        }
 
         ensureSessionMapLoaded(session, sessionMapId);
         String mapData = session.getCurrentMapData();

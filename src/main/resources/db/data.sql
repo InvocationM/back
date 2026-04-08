@@ -110,6 +110,11 @@ INSERT INTO `chest` (`id`, `name`, `icon`, `rewards`, `create_time`, `update_tim
 VALUES (1, '普通宝箱', '', '1_1-1_10000;2_1-2_5000', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 
+-- 大章节主表（与 big_map_layer.big_map_id 对应）
+INSERT IGNORE INTO `big_map` (`id`, `name`, `create_time`, `update_time`)
+VALUES (1, '第一章', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+       (2, '第二章', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
 --  第一章的大章节 层数据
 INSERT INTO `big_map_layer` (`big_map_id`, `sort_order`, `options`)
 VALUES (1, 0, '[1001, 1002, 1003]'),
