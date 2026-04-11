@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS `item` (
     `id` INT NOT NULL COMMENT '物品唯一标识符',
     `name` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '物品名称',
     `icon` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '图标资源标识',
-    `type` INT NOT NULL DEFAULT 0 COMMENT '物品类型',
+    `type` INT NOT NULL DEFAULT 0 COMMENT '物品类型：1装备 2宝石 3钥匙 4血瓶',
     `sub_type` INT NOT NULL DEFAULT 0 COMMENT '物品子类型',
     `shape_type` TINYINT NOT NULL DEFAULT 1 COMMENT '背包占格形态 1～9',
     `max_stack` INT NOT NULL DEFAULT 1 COMMENT '最大叠加数量',

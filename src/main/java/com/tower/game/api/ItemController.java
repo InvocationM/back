@@ -22,7 +22,7 @@ public class ItemController {
 
     /**
      * 根据 id 列表批量查询物品
-     * POST /api/item/batch，请求体示例：{ "ids": [1, 2, 3] }
+     * POST /api/item/batch，请求体示例：{ "ids": [1, 2, 3, 4] }
      */
     @PostMapping("/batch")
     public ApiResponse<List<Item>> batch(@Valid @RequestBody ItemBatchQueryRequest request) {

@@ -88,7 +88,8 @@ VALUES (1, '绿泡泡', 'NPC11', 5, 1, 20, 43, 26, 43, 9, 0, '1_1-1_10000;4_1-1_
 INSERT INTO `item` (`id`, `name`, `icon`, `type`, `sub_type`, `shape_type`, `max_stack`, `attack`, `defence`, `create_time`, `update_time`)
 VALUES (1, '测试装备', '0', 1, 0, 1, 99, 5, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
        (2, '测试宝石', '1', 2, 0, 1, 99, 0, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-       (3, '测试钥匙', '2', 3, 0, 1, 1, 0, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+       (3, '测试钥匙', '2', 3, 0, 1, 1, 0, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+       (4, '血瓶', '3', 4, 0, 1, 99, 0, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 -- 背包解锁次序表（10×7，序号 1～70，slot_index=0）
 INSERT INTO `backpack_unlock_order` (`slot_index`, `order_number`, `grid_row`, `grid_col`)
