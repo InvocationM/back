@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 物品配置服务
@@ -32,5 +33,20 @@ public class ItemService {
             return Collections.emptyList();
         }
         return itemMapper.selectBatchIds(ids);
+    }
+
+    /** 物品 type：血瓶 */
+    private static final int ITEM_TYPE_BLOOD_POTION = 4;
+
+    /**
+     * 按 id 批量查询，仅返回 type=4 的血瓶；非血瓶 id 不会出现在结果中。
+     */
+    public List<Item> listBloodPotionsByIds(List<Integer> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return listByIds(ids).stream()
+                .filter(item -> item.getType() != null && item.getType() == ITEM_TYPE_BLOOD_POTION)
+                .collect(Collectors.toList());
     }
 }
