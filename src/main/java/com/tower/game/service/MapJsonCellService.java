@@ -9,7 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 /**
- * 修改地图 JSON 中单个格子（如拾取血瓶后改为空地）
+ * 修改地图 JSON 中单个格子（拾取可入包地图物后改为空地）
  */
 @Service
 @RequiredArgsConstructor
@@ -19,12 +19,12 @@ public class MapJsonCellService {
 
     private final ObjectMapper objectMapper;
 
-    public record BloodPotionPickupResult(int itemId, int count, String newMapJson) {}
+    public record MapCellPickupResult(int itemId, int count, String newMapJson) {}
 
     /**
-     * 校验 (x,y) 格首事件为血瓶 {@link MapWalkableService#EVENT_TYPE_BLOOD_POTION}，替换为空地 type=2。
+     * 校验 (x,y) 格首事件为指定 type（如钥匙 7、血瓶 9），替换为空地 type=2。
      */
-    public BloodPotionPickupResult pickupBloodPotionFromCell(String mapJson, int x, int y) {
+    public MapCellPickupResult pickupMapItemFromCell(String mapJson, int x, int y, int expectedEventType) {
         if (mapJson == null || mapJson.isBlank()) {
             throw new BusinessException("地图数据为空");
         }
@@ -45,12 +45,12 @@ public class MapJsonCellService {
                 }
                 JsonNode first = events.get(0);
                 int type = first.path("type").asInt(0);
-                if (type != MapWalkableService.EVENT_TYPE_BLOOD_POTION) {
-                    throw new BusinessException("该格不是可拾取血瓶");
+                if (type != expectedEventType) {
+                    throw new BusinessException(pickupWrongTypeMessage(expectedEventType));
                 }
                 int itemId = first.path("id").asInt(0);
                 if (itemId <= 0) {
-                    throw new BusinessException("血瓶事件未配置物品 id");
+                    throw new BusinessException("地图事件未配置物品 id");
                 }
                 int count = first.path("count").asInt(1);
                 if (count <= 0) {
@@ -65,7 +65,7 @@ public class MapJsonCellService {
                 newEvents.add(emptyEv);
                 ((ObjectNode) cell).set("events", newEvents);
 
-                return new BloodPotionPickupResult(itemId, count, objectMapper.writeValueAsString(root));
+                return new MapCellPickupResult(itemId, count, objectMapper.writeValueAsString(root));
             }
             throw new BusinessException("该格无地图事件");
         } catch (BusinessException e) {
@@ -73,5 +73,15 @@ public class MapJsonCellService {
         } catch (Exception e) {
             throw new BusinessException("解析或修改地图 JSON 失败");
         }
+    }
+
+    private static String pickupWrongTypeMessage(int expectedEventType) {
+        if (expectedEventType == MapWalkableService.EVENT_TYPE_KEY) {
+            return "该格不是可拾取钥匙";
+        }
+        if (expectedEventType == MapWalkableService.EVENT_TYPE_BLOOD_POTION) {
+            return "该格不是可拾取血瓶";
+        }
+        return "该格事件类型与拾取不匹配";
     }
 }

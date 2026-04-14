@@ -35,7 +35,10 @@ public class ItemService {
         return itemMapper.selectBatchIds(ids);
     }
 
-    /** 物品 type：血瓶（与 item 表、{@link Item} 注释一致） */
+    /** 物品 type：钥匙（与 {@link Item} 注释一致） */
+    public static final int ITEM_TYPE_KEY = 7;
+
+    /** 物品 type：血瓶（与 {@link Item} 注释一致） */
     public static final int ITEM_TYPE_BLOOD_POTION = 9;
 
     /**

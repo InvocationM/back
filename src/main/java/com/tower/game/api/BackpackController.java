@@ -109,7 +109,7 @@ public class BackpackController {
     }
 
     /**
-     * 拾取地图格子上配置的血瓶（事件 type=9）：需在目标格或相邻格，物品入默认背包 slot0（自动找可叠加或空位锚点）。
+     * 拾取地图格子上的可入包物品：事件 type=7 钥匙、type=9 血瓶；需在目标格或相邻格；入默认背包 slot0（自动可叠加或空位）。
      * POST /api/backpack/pickupMapCell
      */
     @PostMapping("/pickupMapCell")

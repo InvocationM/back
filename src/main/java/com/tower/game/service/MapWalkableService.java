@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service;
 
 /**
  * 地图可通行与入口查询（与客户端 MapEventType 规则一致）
- * 1=入口 2=空地 3=阻挡 4=出口 5=怪物 6=宝箱 9=血瓶；type=3 不可通行，其余可通行。
+ * 1=入口 2=空地 3=阻挡 4=出口 5=怪物 6=宝箱 7=钥匙 9=血瓶；type=3 不可通行，其余可通行。
  * <p>
  * 所有方法均要求调用方传入缓存的 mapData，不再自行查库。
  */
@@ -24,6 +24,9 @@ public class MapWalkableService {
     private static final int EVENT_TYPE_EXIT = 4;
     private static final int EVENT_TYPE_MONSTER = 5;
     private static final int EVENT_TYPE_CHEST = 6;
+
+    /** 地图事件：钥匙（与客户端 MapEventType 一致） */
+    public static final int EVENT_TYPE_KEY = 7;
 
     /** 地图事件：血瓶（与客户端 MapEventType 一致） */
     public static final int EVENT_TYPE_BLOOD_POTION = 9;
@@ -127,7 +130,7 @@ public class MapWalkableService {
     }
 
     /**
-     * 获取格子上的事件类型与ID。与客户端 MapEventType 一致：1=入口 2=空地 3=阻挡 4=出口 5=怪物 6=宝箱 9=血瓶。
+     * 获取格子上的事件类型与ID。与客户端 MapEventType 一致：1=入口 2=空地 3=阻挡 4=出口 5=怪物 6=宝箱 7=钥匙 9=血瓶。
      *
      * @return [type, id]，若无事件或越界返回 null；有事件时 id 为 events[0].id（怪物/宝箱等）
      */
