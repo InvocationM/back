@@ -2,6 +2,7 @@ package com.tower.game.api;
 
 import com.tower.game.common.dto.BackpackItemPlacementVo;
 import com.tower.game.common.dto.BackpackMoveRequest;
+import com.tower.game.common.dto.BackpackPickupMapCellRequest;
 import com.tower.game.common.dto.BackpackSlotVo;
 import com.tower.game.common.dto.BackpackUnlockRequest;
 import com.tower.game.common.exception.BusinessException;
@@ -12,6 +13,7 @@ import com.tower.game.model.entity.PlayerBackpackItem;
 import com.tower.game.server.session.PlayerSession;
 import com.tower.game.server.session.SessionManager;
 import com.tower.game.service.ItemService;
+import com.tower.game.service.MapPotionPickupService;
 import com.tower.game.service.PlayerBackpackItemService;
 import com.tower.game.service.PlayerBackpackSlotService;
 import jakarta.validation.Valid;
@@ -38,6 +40,7 @@ public class BackpackController {
     private final PlayerBackpackItemService playerBackpackItemService;
     private final ItemService itemService;
     private final SessionManager sessionManager;
+    private final MapPotionPickupService mapPotionPickupService;
 
     /** 临时写死用户ID，后续改为从登录态获取 */
     private static final long DEFAULT_PLAYER_ID = 1001L;
@@ -102,6 +105,19 @@ public class BackpackController {
         PlayerSession session = sessionManager.getSessionByUserId(playerId);
         if (session == null) throw new BusinessException("玩家未在线");
         playerBackpackItemService.move(playerId, session.authoritativeState(), request);
+        return ApiResponse.success(null);
+    }
+
+    /**
+     * 拾取地图格子上配置的血瓶（事件 type=9）：需在目标格或相邻格，物品入默认背包 slot0（自动找可叠加或空位锚点）。
+     * POST /api/backpack/pickupMapCell
+     */
+    @PostMapping("/pickupMapCell")
+    public ApiResponse<Void> pickupMapCell(@Valid @RequestBody BackpackPickupMapCellRequest request) {
+        long playerId = DEFAULT_PLAYER_ID;
+        PlayerSession session = sessionManager.getSessionByUserId(playerId);
+        if (session == null) throw new BusinessException("玩家未在线");
+        mapPotionPickupService.pickupFromMapCell(session, request.getCellX(), request.getCellY());
         return ApiResponse.success(null);
     }
 

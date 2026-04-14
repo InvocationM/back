@@ -7,6 +7,7 @@ import com.tower.game.common.enums.BackpackMoveType;
 import com.tower.game.common.enums.ItemShapeType;
 import com.tower.game.common.exception.BusinessException;
 import com.tower.game.mapper.PlayerBackpackItemMapper;
+import com.tower.game.model.entity.BackpackUnlockOrder;
 import com.tower.game.model.entity.Item;
 import com.tower.game.model.entity.PlayerBackpackItem;
 import com.tower.game.server.session.SessionState;
@@ -27,6 +28,7 @@ public class PlayerBackpackItemService {
 
     private final PlayerBackpackItemMapper playerBackpackItemMapper;
     private final PlayerBackpackSlotService playerBackpackSlotService;
+    private final BackpackUnlockOrderService backpackUnlockOrderService;
     private final ItemService itemService;
 
     /**
@@ -120,6 +122,49 @@ public class PlayerBackpackItemService {
 
         state.addItemToMap(placement.getItemId(), placement.getCount());
         playerBackpackItemMapper.deleteById(placement.getId());
+    }
+
+    /**
+     * 仅默认背包位 slot=0：按解锁序号优先找可叠加锚点，否则找首个可放置空位。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void autoPlaceInDefaultBackpack(Long playerId, Item item, int count) {
+        validateItemConfig(item);
+        if (count <= 0) throw new BusinessException("数量必须大于0");
+        int slotIndex = 0;
+        int maxOrder = playerBackpackSlotService.getMaxUnlockedOrder(playerId, slotIndex);
+        for (int order = 1; order <= maxOrder; order++) {
+            BackpackUnlockOrder unlock = backpackUnlockOrderService.getBySlotAndOrder(slotIndex, order);
+            if (unlock == null || unlock.getGridRow() == null || unlock.getGridCol() == null) continue;
+            int gr = unlock.getGridRow();
+            int gc = unlock.getGridCol();
+            PlayerBackpackItem mergeTarget = findMergeTarget(playerId, slotIndex, gr, gc, item, null);
+            if (mergeTarget != null && mergeTarget.getCount() + count <= item.getMaxStack()) {
+                placeIntoBackpack(playerId, slotIndex, gr, gc, item, count, null);
+                return;
+            }
+        }
+        for (int order = 1; order <= maxOrder; order++) {
+            BackpackUnlockOrder unlock = backpackUnlockOrderService.getBySlotAndOrder(slotIndex, order);
+            if (unlock == null || unlock.getGridRow() == null || unlock.getGridCol() == null) continue;
+            int gr = unlock.getGridRow();
+            int gc = unlock.getGridCol();
+            if (canPlaceAt(playerId, slotIndex, gr, gc, item, null)) {
+                placeIntoBackpack(playerId, slotIndex, gr, gc, item, count, null);
+                return;
+            }
+        }
+        throw new BusinessException("默认背包无可用位置");
+    }
+
+    private boolean canPlaceAt(Long playerId, int slotIndex, int gridRow, int gridCol,
+                               Item item, Long excludePlacementId) {
+        try {
+            validatePosition(playerId, slotIndex, gridRow, gridCol, item, excludePlacementId);
+            return true;
+        } catch (BusinessException e) {
+            return false;
+        }
     }
 
     // ==================== 内部方法 ====================

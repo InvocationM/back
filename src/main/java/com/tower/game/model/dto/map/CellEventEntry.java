@@ -14,7 +14,7 @@ import lombok.AllArgsConstructor;
 public class CellEventEntry {
 
     /**
-     * 事件类型 1-6（入口、空地、阻挡、出口、怪物、宝箱等）
+     * 事件类型 1-6（入口、空地、阻挡、出口、怪物、宝箱  9=血瓶等）
      */
     private int type;
 
