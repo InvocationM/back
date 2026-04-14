@@ -32,7 +32,7 @@ public class Item {
     private String icon;
 
     /**
-     * 物品类型：1装备 2宝石 3钥匙 4血瓶
+     * 物品类型：1装备 2宝石 7钥匙  9血瓶
      */
     private Integer type;
 

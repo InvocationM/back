@@ -36,7 +36,7 @@ public class ItemService {
     }
 
     /** 物品 type：血瓶（与 item 表、{@link Item} 注释一致） */
-    public static final int ITEM_TYPE_BLOOD_POTION = 4;
+    public static final int ITEM_TYPE_BLOOD_POTION = 9;
 
     /**
      * 按 id 批量查询，仅返回 type=血瓶 的物品；非血瓶 id 不会出现在结果中。
