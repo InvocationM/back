@@ -7,13 +7,13 @@ import lombok.Data;
 import java.util.List;
 
 /**
- * 血瓶物品 id 批量查询请求
+ * 钥匙物品 id 批量查询请求
  */
 @Data
-public class BloodPotionBatchQueryRequest {
+public class KeyBatchQueryRequest {
 
     /**
-     * 物品 id 列表（仅返回 type=9 的血瓶），最多 100 个
+     * 物品 id 列表（仅返回 type=7 的钥匙），最多 100 个
      */
     @NotEmpty(message = "ids 不能为空")
     @Size(max = 100, message = "单次最多查询 100 个物品")

@@ -11,7 +11,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 
 /**
- * 血瓶配置查询接口（物品 type=4）
+ * 血瓶配置查询接口（物品 {@link com.tower.game.service.ItemService#ITEM_TYPE_BLOOD_POTION}）
  */
 @RestController
 @RequestMapping("/api/blood-potion")
@@ -21,7 +21,7 @@ public class BloodPotionController {
     private final ItemService itemService;
 
     /**
-     * 根据 id 列表批量查询血瓶（仅返回 type=4 的物品）
+     * 根据 id 列表批量查询血瓶（仅返回 type=9 的物品）
      * POST /api/blood-potion/batch，请求体示例：{ "ids": [4] }
      */
     @PostMapping("/batch")

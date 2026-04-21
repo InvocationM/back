@@ -52,4 +52,16 @@ public class ItemService {
                 .filter(item -> item.getType() != null && item.getType() == ITEM_TYPE_BLOOD_POTION)
                 .collect(Collectors.toList());
     }
+
+    /**
+     * 按 id 批量查询，仅返回 type=钥匙 的物品；非钥匙 id 不会出现在结果中。
+     */
+    public List<Item> listKeysByIds(List<Integer> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return listByIds(ids).stream()
+                .filter(item -> item.getType() != null && item.getType() == ITEM_TYPE_KEY)
+                .collect(Collectors.toList());
+    }
 }
