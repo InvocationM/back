@@ -1,15 +1,21 @@
 package com.tower.game.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tower.game.common.dto.OpenDoorRequest;
 import com.tower.game.common.exception.BusinessException;
 import com.tower.game.common.response.ApiResponse;
 import com.tower.game.model.entity.GameMap;
+import com.tower.game.server.session.PlayerSession;
+import com.tower.game.server.session.SessionManager;
 import com.tower.game.service.GameMapService;
+import com.tower.game.service.MapOpenDoorService;
 import com.tower.game.service.SessionMapRedisService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -28,6 +34,22 @@ public class MapController {
     private final GameMapService gameMapService;
     private final SessionMapRedisService sessionMapRedisService;
     private final ObjectMapper objectMapper;
+    private final SessionManager sessionManager;
+    private final MapOpenDoorService mapOpenDoorService;
+
+    /**
+     * 开门：校验 WebSocket 会话内位置与门格相邻、背包有对应钥匙、门上 id 与 doorId 一致；扣 1 把钥匙并将该格改为空地，写 Redis。
+     * POST /api/map/openDoor，body：{"cellX":1,"cellY":2,"doorId":3}。地图门事件 type=8，events[0].id 为 doorId。
+     */
+    @PostMapping("/openDoor")
+    public ApiResponse<Void> openDoor(@Valid @RequestBody OpenDoorRequest request) {
+        PlayerSession session = sessionManager.getSessionByUserId(DEFAULT_PLAYER_ID);
+        if (session == null) {
+            throw new BusinessException("玩家未在线");
+        }
+        mapOpenDoorService.openDoor(session, request.getCellX(), request.getCellY(), request.getDoorId());
+        return ApiResponse.success(null);
+    }
 
     /**
      * 根据 mapId 查询地图，返回整份前端 JSON（mapId、width、height、cells）。

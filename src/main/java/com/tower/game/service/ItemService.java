@@ -42,6 +42,22 @@ public class ItemService {
     public static final int ITEM_TYPE_BLOOD_POTION = 9;
 
     /**
+     * 钥匙是否可开指定编号的门：物品 type=钥匙，且物品 id 或 sub_type 与门上 doorId 一致。
+     */
+    public static boolean keyOpensDoor(Item item, int doorId) {
+        if (item == null || item.getType() == null || item.getType() != ITEM_TYPE_KEY) {
+            return false;
+        }
+        if (doorId <= 0) {
+            return false;
+        }
+        if (item.getId() != null && item.getId() == doorId) {
+            return true;
+        }
+        return item.getSubType() != null && item.getSubType() == doorId;
+    }
+
+    /**
      * 按 id 批量查询，仅返回 type=血瓶 的物品；非血瓶 id 不会出现在结果中。
      */
     public List<Item> listBloodPotionsByIds(List<Integer> ids) {

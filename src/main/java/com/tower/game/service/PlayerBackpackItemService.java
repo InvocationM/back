@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -292,5 +293,37 @@ public class PlayerBackpackItemService {
         LambdaQueryWrapper<PlayerBackpackItem> q = new LambdaQueryWrapper<>();
         q.eq(PlayerBackpackItem::getPlayerId, playerId);
         return playerBackpackItemMapper.selectList(q);
+    }
+
+    /**
+     * 消耗 1 把可开 {@code doorId} 之门的钥匙（物品 type=7，且 id 或 sub_type 与门一致）；按 slot、格子序取第一个有数量的放置。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void consumeOneKeyOpeningDoor(Long playerId, int doorId) {
+        List<PlayerBackpackItem> placements = listByPlayer(playerId);
+        placements.sort(Comparator
+                .comparing(PlayerBackpackItem::getSlotIndex)
+                .thenComparing(PlayerBackpackItem::getGridRow)
+                .thenComparing(PlayerBackpackItem::getGridCol)
+                .thenComparing(PlayerBackpackItem::getId));
+        for (PlayerBackpackItem p : placements) {
+            Item item = itemService.getById(p.getItemId());
+            if (item == null || !ItemService.keyOpensDoor(item, doorId)) {
+                continue;
+            }
+            int count = p.getCount() == null ? 0 : p.getCount();
+            if (count < 1) {
+                continue;
+            }
+            int next = count - 1;
+            if (next <= 0) {
+                playerBackpackItemMapper.deleteById(p.getId());
+            } else {
+                p.setCount(next);
+                playerBackpackItemMapper.updateById(p);
+            }
+            return;
+        }
+        throw new BusinessException("背包中没有可打开此门的钥匙");
     }
 }

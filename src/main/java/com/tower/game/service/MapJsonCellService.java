@@ -21,6 +21,8 @@ public class MapJsonCellService {
 
     public record MapCellPickupResult(int itemId, int count, String newMapJson) {}
 
+    public record MapDoorOpenResult(String newMapJson) {}
+
     /**
      * 校验 (x,y) 格首事件为指定 type（如钥匙 7、血瓶 9），替换为空地 type=2。
      */
@@ -66,6 +68,59 @@ public class MapJsonCellService {
                 ((ObjectNode) cell).set("events", newEvents);
 
                 return new MapCellPickupResult(itemId, count, objectMapper.writeValueAsString(root));
+            }
+            throw new BusinessException("该格无地图事件");
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new BusinessException("解析或修改地图 JSON 失败");
+        }
+    }
+
+    /**
+     * 将门上事件（type=8）替换为空地 type=2；校验首事件为门且 id 与 doorId 一致。
+     */
+    public MapDoorOpenResult openDoorFromCell(String mapJson, int x, int y, int expectedDoorId) {
+        if (mapJson == null || mapJson.isBlank()) {
+            throw new BusinessException("地图数据为空");
+        }
+        if (expectedDoorId <= 0) {
+            throw new BusinessException("doorId 无效");
+        }
+        try {
+            ObjectNode root = (ObjectNode) objectMapper.readTree(mapJson);
+            JsonNode cells = root.get("cells");
+            if (cells == null || !cells.isArray()) {
+                throw new BusinessException("地图无 cells 数据");
+            }
+            for (int i = 0; i < cells.size(); i++) {
+                JsonNode cell = cells.get(i);
+                if (cell == null || !cell.isObject()) continue;
+                if (cell.path("x").asInt() != x || cell.path("y").asInt() != y) continue;
+
+                JsonNode events = cell.get("events");
+                if (events == null || !events.isArray() || events.size() == 0) {
+                    throw new BusinessException("该格无门事件");
+                }
+                JsonNode first = events.get(0);
+                int type = first.path("type").asInt(0);
+                if (type != MapWalkableService.EVENT_TYPE_DOOR) {
+                    throw new BusinessException("该格不是门");
+                }
+                int doorCellId = first.path("id").asInt(0);
+                if (doorCellId != expectedDoorId) {
+                    throw new BusinessException("门上编号与请求 doorId 不一致");
+                }
+
+                ArrayNode newEvents = objectMapper.createArrayNode();
+                ObjectNode emptyEv = objectMapper.createObjectNode();
+                emptyEv.put("type", EVENT_TYPE_EMPTY);
+                emptyEv.put("id", 0);
+                emptyEv.put("weight", 100);
+                newEvents.add(emptyEv);
+                ((ObjectNode) cell).set("events", newEvents);
+
+                return new MapDoorOpenResult(objectMapper.writeValueAsString(root));
             }
             throw new BusinessException("该格无地图事件");
         } catch (BusinessException e) {

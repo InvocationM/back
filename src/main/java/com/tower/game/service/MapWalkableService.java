@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service;
 
 /**
  * 地图可通行与入口查询（与客户端 MapEventType 规则一致）
- * 1=入口 2=空地 3=阻挡 4=出口 5=怪物 6=宝箱 7=钥匙 9=血瓶；type=3 不可通行，其余可通行。
+ * 1=入口 2=空地 3=阻挡 4=出口 5=怪物 6=宝箱 7=钥匙 8=门 9=血瓶；type=3、8 不可通行，其余可通行。
  * <p>
  * 所有方法均要求调用方传入缓存的 mapData，不再自行查库。
  */
@@ -27,6 +27,9 @@ public class MapWalkableService {
 
     /** 地图事件：钥匙（与客户端 MapEventType 一致） */
     public static final int EVENT_TYPE_KEY = 7;
+
+    /** 地图事件：门（与客户端 MapEventType 一致），未开启前不可通行 */
+    public static final int EVENT_TYPE_DOOR = 8;
 
     /** 地图事件：血瓶（与客户端 MapEventType 一致） */
     public static final int EVENT_TYPE_BLOOD_POTION = 9;
@@ -60,7 +63,7 @@ public class MapWalkableService {
                     JsonNode events = cell.get("events");
                     if (events != null && events.isArray() && events.size() > 0) {
                         int type = events.get(0).path("type").asInt(0);
-                        return type != EVENT_TYPE_BLOCK;
+                        return type != EVENT_TYPE_BLOCK && type != EVENT_TYPE_DOOR;
                     }
                     return true;
                 }
@@ -73,7 +76,7 @@ public class MapWalkableService {
     }
 
     /**
-     * 寻路用可通行：仅空地(2)、入口(1)、出口(4)为 true；阻挡(3)、怪物(5)、宝箱(6)为 false。
+     * 寻路用可通行：仅空地(2)、入口(1)、出口(4)为 true；阻挡(3)、怪物(5)、宝箱(6)、门(8)等为 false（门与怪/箱相同，路径止于邻格）。
      */
     public boolean isWalkableForPathfinding(Integer mapId, int x, int y, String mapData) {
         if (mapId == null) return false;
@@ -130,7 +133,7 @@ public class MapWalkableService {
     }
 
     /**
-     * 获取格子上的事件类型与ID。与客户端 MapEventType 一致：1=入口 2=空地 3=阻挡 4=出口 5=怪物 6=宝箱 7=钥匙 9=血瓶。
+     * 获取格子上的事件类型与ID。与客户端 MapEventType 一致：1=入口 2=空地 3=阻挡 4=出口 5=怪物 6=宝箱 7=钥匙 8=门 9=血瓶。
      *
      * @return [type, id]，若无事件或越界返回 null；有事件时 id 为 events[0].id（怪物/宝箱等）
      */
