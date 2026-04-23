@@ -91,6 +91,33 @@ VALUES (1, '测试装备', '0', 1, 0, 1, 99, 5, 0, CURRENT_TIMESTAMP, CURRENT_TI
        (3, '测试钥匙', '2', 7, 0, 1, 1, 0, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
        (4, '血瓶', '3', 9, 0, 1, 99, 0, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
+
+-- 物品表插入数据 （插入20条钥匙数据）
+insert into item (id, name, icon, type, sub_type, shape_type, max_stack, attack, defence, create_time, update_time)
+values (1, '钥匙1', 'icon_key_1', 7, 0, 1, 99, 0, 0, now(), now()),
+       (2, '钥匙2', 'icon_key_2', 7, 0, 1, 99, 0, 0, now(), now()),
+       (3, '钥匙3', 'icon_key_3', 7, 0, 1, 99, 0, 0, now(), now()),
+       (4, '钥匙4', 'icon_key_4', 7, 0, 1, 99, 0, 0, now(), now()),
+       (5, '钥匙5', 'icon_key_5', 7, 0, 1, 99, 0, 0, now(), now()),
+       (6, '钥匙6', 'icon_key_6', 7, 0, 1, 99, 0, 0, now(), now()),
+       (7, '钥匙7', 'icon_key_7', 7, 0, 1, 99, 0, 0, now(), now()),
+       (8, '钥匙8', 'icon_key_8', 7, 0, 1, 99, 0, 0, now(), now()),
+       (9, '钥匙9', 'icon_key_9', 7, 0, 1, 99, 0, 0, now(), now()),
+       (10, '钥匙10', 'icon_key_10', 7, 0, 1, 99, 0, 0, now(), now()),
+       (11, '钥匙11', 'icon_key_11', 7, 0, 1, 99, 0, 0, now(), now()),
+       (12, '钥匙12', 'icon_key_12', 7, 0, 1, 99, 0, 0, now(), now()),
+       (13, '钥匙13', 'icon_key_13', 7, 0, 1, 99, 0, 0, now(), now()),
+       (14, '钥匙14', 'icon_key_14', 7, 0, 1, 99, 0, 0, now(), now()),
+       (15, '钥匙15', 'icon_key_15', 7, 0, 1, 99, 0, 0, now(), now()),
+       (16, '钥匙16', 'icon_key_16', 7, 0, 1, 99, 0, 0, now(), now()),
+       (17, '钥匙17', 'icon_key_17', 7, 0, 1, 99, 0, 0, now(), now()),
+       (18, '钥匙18', 'icon_key_18', 7, 0, 1, 99, 0, 0, now(), now()),
+       (19, '钥匙19', 'icon_key_19', 7, 0, 1, 99, 0, 0, now(), now()),
+       (20, '钥匙20', 'icon_key_20', 7, 0, 1, 99, 0, 0, now(), now());
+
+
+
+
 -- 背包解锁次序表（10×7，序号 1～70，slot_index=0）
 INSERT INTO `backpack_unlock_order` (`slot_index`, `order_number`, `grid_row`, `grid_col`)
 VALUES
