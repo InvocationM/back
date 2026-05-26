@@ -59,7 +59,7 @@ public class PlayerSession {
         return "session_" + SESSION_ID_GENERATOR.getAndIncrement() + "_" + System.currentTimeMillis();
     }
 
-    // ---------- 状态读写：委托给 SessionState，对外保持原有 getter/setter 兼容 ----------
+    // ---------- 状态读写：委托给 SessionState ----------
 
     public String getSessionId() { return state.getSessionId(); }
     public Long getUserId() { return state.getUserId(); }

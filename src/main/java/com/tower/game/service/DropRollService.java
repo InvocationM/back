@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * 怪物掉落随机：解析 Monster.item 字符串，按万分比与数量范围 roll（与 Unity DropParser 一致）
+ * 怪物掉落随机：解析 Monster.item 字符串，按万分比与数量范围 roll。
  */
 @Slf4j
 @Service

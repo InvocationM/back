@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * 战斗核心逻辑：命中、伤害、暴击、反伤、连击，50 回合上限（与 Unity BattleEngine 一致）
+ * 战斗核心逻辑：命中、伤害、暴击、反伤、连击，50 回合上限。
  */
 @Slf4j
 @Service
