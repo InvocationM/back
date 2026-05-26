@@ -23,7 +23,9 @@ public class MapPathService {
 
     private static final int EVENT_TYPE_MONSTER = 5;
     private static final int EVENT_TYPE_CHEST = 6;
+    private static final int EVENT_TYPE_KEY = 7;
     private static final int EVENT_TYPE_DOOR = 8;
+    private static final int EVENT_TYPE_BLOOD_POTION = 9;
     private static final int[][] NEIGHBORS = {{0, 1}, {1, 0}, {0, -1}, {-1, 0}};
 
     private final MapWalkableService mapWalkableService;
@@ -48,7 +50,9 @@ public class MapPathService {
         int[] cellEvent = mapWalkableService.getCellEvent(mapId, toX, toY, mapData);
         if (cellEvent != null) {
             int eventType = cellEvent[0];
-            if (eventType == EVENT_TYPE_MONSTER || eventType == EVENT_TYPE_CHEST || eventType == EVENT_TYPE_DOOR) {
+            if (eventType == EVENT_TYPE_MONSTER || eventType == EVENT_TYPE_CHEST
+                    || eventType == EVENT_TYPE_KEY || eventType == EVENT_TYPE_DOOR
+                    || eventType == EVENT_TYPE_BLOOD_POTION) {
                 endIsEvent = true;
                 // 方案 A：路径终点仅为相邻可走格，不包含事件格本身
             } else if (!mapWalkableService.isWalkableForPathfinding(mapId, toX, toY, mapData)) {
