@@ -19,7 +19,7 @@ public class WebSocketConfig implements WebSocketConfigurer {
 
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
-        registry.addHandler(gameWebSocketHandler, "/game")
+        registry.addHandler(gameWebSocketHandler, "/ws")
                 .setAllowedOrigins("*"); // 允许所有来源，生产环境应该配置具体域名
     }
 }
