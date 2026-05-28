@@ -1,21 +1,27 @@
 package com.tower.game.api;
 
+import com.tower.game.common.annotation.NoLog;
+import com.tower.game.common.auth.CurrentUser;
 import com.tower.game.common.dto.LoginRequest;
 import com.tower.game.common.dto.LoginResponse;
 import com.tower.game.common.response.ApiResponse;
-import com.tower.game.common.annotation.NoLog;
+import com.tower.game.service.AuthTokenService;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-/**
- * 认证控制器
- */
 @Slf4j
 @RestController
 @RequestMapping("/api/auth")
+@RequiredArgsConstructor
 public class AuthController {
+
+    private final AuthTokenService authTokenService;
 
     @Value("${server.port:8080}")
     private int serverPort;
@@ -23,51 +29,28 @@ public class AuthController {
     @Value("${server.address:localhost}")
     private String serverAddress;
 
-    /**
-     * 用户登录
-     */
     @NoLog
     @PostMapping("/login")
     public ApiResponse<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         log.info("用户登录请求: {}", request.getUsername());
-        
-        // TODO: 实现实际的登录验证逻辑
-        // 1. 验证用户名密码
-        // 2. 生成token
-        // 3. 返回token和WebSocket连接地址
-        
-        // 临时实现
-        String token = generateToken(request.getUsername());
-        String websocketUrl = String.format("ws://%s:%d/ws", serverAddress, serverPort);
-        
+
+        CurrentUser user = authTokenService.login(request.getUsername(), request.getPassword());
+        String token = authTokenService.issueToken(user);
+        String websocketUrl = String.format("ws://%s:%d/tower/ws?token=%s", serverAddress, serverPort, token);
+
         LoginResponse response = new LoginResponse(
-            token,
-            1L, // TODO: 从数据库获取实际userId
-            request.getUsername(),
-            websocketUrl
+                token,
+                user.getUserId(),
+                user.getUsername(),
+                websocketUrl
         );
-        
         return ApiResponse.success("登录成功", response);
     }
 
-    /**
-     * 用户注册
-     */
     @NoLog
     @PostMapping("/register")
     public ApiResponse<String> register(@Valid @RequestBody LoginRequest request) {
         log.info("用户注册请求: {}", request.getUsername());
-        
-        // TODO: 实现实际的注册逻辑
-        
-        return ApiResponse.success("注册成功", null);
-    }
-
-    /**
-     * 生成token（临时实现）
-     */
-    private String generateToken(String username) {
-        // TODO: 使用JWT或其他方式生成token
-        return "token_" + username + "_" + System.currentTimeMillis();
+        return ApiResponse.success("注册接口未接入", null);
     }
 }

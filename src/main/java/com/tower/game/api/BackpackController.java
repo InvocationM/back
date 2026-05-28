@@ -1,5 +1,6 @@
 package com.tower.game.api;
 
+import com.tower.game.common.auth.CurrentUserResolver;
 import com.tower.game.common.dto.BackpackItemPlacementVo;
 import com.tower.game.common.dto.BackpackMoveRequest;
 import com.tower.game.common.dto.BackpackPickupMapCellRequest;
@@ -16,6 +17,7 @@ import com.tower.game.service.ItemService;
 import com.tower.game.service.MapPotionPickupService;
 import com.tower.game.service.PlayerBackpackItemService;
 import com.tower.game.service.PlayerBackpackSlotService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -28,9 +30,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/**
- * 背包接口
- */
 @RestController
 @RequestMapping("/api/backpack")
 @RequiredArgsConstructor
@@ -41,19 +40,11 @@ public class BackpackController {
     private final ItemService itemService;
     private final SessionManager sessionManager;
     private final MapPotionPickupService mapPotionPickupService;
+    private final CurrentUserResolver currentUserResolver;
 
-    /** 临时写死用户ID，后续改为从登录态获取 */
-    private static final long DEFAULT_PLAYER_ID = 1001L;
-
-    /**
-     * 查询玩家背包：5 个 slot 状态 + 每 slot 放置列表
-     * POST /api/backpack/getBackpack（无入参，当前写死用户）
-     */
     @PostMapping("/getBackpack")
-    public ApiResponse<List<BackpackSlotVo>> getBackpack() {
-
-
-        long playerId = DEFAULT_PLAYER_ID;
+    public ApiResponse<List<BackpackSlotVo>> getBackpack(HttpServletRequest httpRequest) {
+        long playerId = currentUserResolver.requireUser(httpRequest).getUserId();
         List<BackpackSlotVo> slots = new ArrayList<>();
 
         for (int slotIndex = 0; slotIndex < 5; slotIndex++) {
@@ -95,39 +86,27 @@ public class BackpackController {
         return ApiResponse.success(slots);
     }
 
-    /**
-     * 统一移动接口：地图→背包、背包→背包、背包→地图
-     * POST /api/backpack/move
-     */
     @PostMapping("/move")
-    public ApiResponse<Void> move(@Valid @RequestBody BackpackMoveRequest request) {
-        long playerId = DEFAULT_PLAYER_ID;
+    public ApiResponse<Void> move(@Valid @RequestBody BackpackMoveRequest request, HttpServletRequest httpRequest) {
+        long playerId = currentUserResolver.requireUser(httpRequest).getUserId();
         PlayerSession session = sessionManager.getSessionByUserId(playerId);
         if (session == null) throw new BusinessException("玩家未在线");
         playerBackpackItemService.move(playerId, session.authoritativeState(), request);
         return ApiResponse.success(null);
     }
 
-    /**
-     * 拾取地图格子上的可入包物品：事件 type=7 钥匙、type=9 血瓶；需在目标格或相邻格；入默认背包 slot0（自动可叠加或空位）。
-     * POST /api/backpack/pickupMapCell
-     */
     @PostMapping("/pickupMapCell")
-    public ApiResponse<Void> pickupMapCell(@Valid @RequestBody BackpackPickupMapCellRequest request) {
-        long playerId = DEFAULT_PLAYER_ID;
+    public ApiResponse<Void> pickupMapCell(@Valid @RequestBody BackpackPickupMapCellRequest request, HttpServletRequest httpRequest) {
+        long playerId = currentUserResolver.requireUser(httpRequest).getUserId();
         PlayerSession session = sessionManager.getSessionByUserId(playerId);
         if (session == null) throw new BusinessException("玩家未在线");
         mapPotionPickupService.pickupFromMapCell(session, request.getCellX(), request.getCellY());
         return ApiResponse.success(null);
     }
 
-    /**
-     * 按序解锁：将对应 slot 的 max_unlocked_order + 1（暂不实现金币消耗）
-     * POST /api/backpack/unlock
-     */
     @PostMapping("/unlock")
-    public ApiResponse<Void> unlock(@Valid @RequestBody BackpackUnlockRequest request) {
-        long playerId = DEFAULT_PLAYER_ID;
+    public ApiResponse<Void> unlock(@Valid @RequestBody BackpackUnlockRequest request, HttpServletRequest httpRequest) {
+        long playerId = currentUserResolver.requireUser(httpRequest).getUserId();
         playerBackpackSlotService.unlockNext(playerId, request.getSlotIndex());
         return ApiResponse.success(null);
     }
