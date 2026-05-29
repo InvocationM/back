@@ -5,30 +5,30 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
-/**
- * 将会话中当前地图 JSON 同步到 Redis（与 SessionState.currentMapData 一致）
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class SessionMapRedisService {
 
-    private static final String KEY_PREFIX = "tower:session:map:";
+    private static final String KEY_PREFIX = "tower:map:";
 
     private final StringRedisTemplate stringRedisTemplate;
+    private final BigMapRunRedisService bigMapRunRedisService;
 
-    /**
-     * 读取已缓存的地图 JSON（与 saveMapJson 使用同一 key）
-     */
     public String getMapJson(Long userId, Integer mapId) {
         if (userId == null || mapId == null) {
             return null;
         }
         String key = buildKey(userId, mapId);
         try {
-            return stringRedisTemplate.opsForValue().get(key);
+            String json = stringRedisTemplate.opsForValue().get(key);
+            if (json != null && !json.isBlank()) {
+                stringRedisTemplate.expire(key, bigMapRunRedisService.ttl());
+                bigMapRunRedisService.touchRun(userId);
+            }
+            return json;
         } catch (Exception e) {
-            log.warn("Redis 读取地图 JSON 失败 userId={} mapId={}", userId, mapId, e);
+            log.warn("Redis read map failed userId={} mapId={}", userId, mapId, e);
             return null;
         }
     }
@@ -39,10 +39,11 @@ public class SessionMapRedisService {
         }
         String key = buildKey(userId, mapId);
         try {
-            stringRedisTemplate.opsForValue().set(key, mapJson);
-            log.debug("Redis 已同步地图 JSON key={}", key);
+            stringRedisTemplate.opsForValue().set(key, mapJson, bigMapRunRedisService.ttl());
+            bigMapRunRedisService.touchRun(userId);
+            log.debug("Redis write map key={}", key);
         } catch (Exception e) {
-            log.warn("Redis 写入地图 JSON 失败 userId={} mapId={}", userId, mapId, e);
+            log.warn("Redis write map failed userId={} mapId={}", userId, mapId, e);
         }
     }
 
@@ -53,13 +54,12 @@ public class SessionMapRedisService {
         String key = buildKey(userId, mapId);
         try {
             stringRedisTemplate.delete(key);
-            log.debug("Redis 已删除地图 JSON key={}", key);
         } catch (Exception e) {
-            log.warn("Redis 删除地图 JSON 失败 userId={} mapId={}", userId, mapId, e);
+            log.warn("Redis delete map failed userId={} mapId={}", userId, mapId, e);
         }
     }
 
-    private static String buildKey(Long userId, Integer mapId) {
-        return KEY_PREFIX + userId + ":" + mapId;
+    private String buildKey(Long userId, Integer mapId) {
+        return KEY_PREFIX + userId + ":" + bigMapRunRedisService.requireRunId(userId) + ":" + mapId;
     }
 }

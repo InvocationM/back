@@ -7,9 +7,9 @@ import com.tower.game.common.dto.map.MapLootCache;
 import com.tower.game.common.dto.map.MapLootCacheVo;
 import com.tower.game.model.entity.Item;
 import com.tower.game.server.session.PlayerSession;
-import com.tower.game.server.session.SessionState;
 import com.tower.game.service.DropRollService;
 import com.tower.game.service.ItemService;
+import com.tower.game.service.MapLootCacheService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -19,9 +19,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * 开箱处理器（4001）：查看地图上尸体/战斗宝箱缓存内的物品列表
- */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -29,6 +26,7 @@ public class ItemPickupProcessor implements MessageProcessor {
 
     private final ItemService itemService;
     private final DropRollService dropRollService;
+    private final MapLootCacheService mapLootCacheService;
 
     @Override
     public void handle(PlayerSession session, Object message) {
@@ -44,16 +42,14 @@ public class ItemPickupProcessor implements MessageProcessor {
             return;
         }
 
-        SessionState state = session.authoritativeState();
-        MapLootCache cache = state.getLootCache(mapCacheId);
+        MapLootCache cache = mapLootCacheService.getLoot(session.getUserId(), mapCacheId);
         if (cache == null) {
             sendFail(session, "该缓存不存在或已被拾取完");
             return;
         }
 
-        resolvePendingLootIfNeeded(cache, state);
+        resolvePendingLootIfNeeded(session.getUserId(), cache);
 
-        // 查询物品详情
         List<Integer> itemIds = cache.getItems().stream()
                 .map(MapCachedItem::getItemId).distinct().toList();
         Map<Integer, Item> itemMap = itemIds.isEmpty() ? Map.of()
@@ -61,15 +57,15 @@ public class ItemPickupProcessor implements MessageProcessor {
                 .collect(java.util.stream.Collectors.toMap(Item::getId, i -> i));
 
         List<MapCachedItemVo> itemVos = new ArrayList<>();
-        for (MapCachedItem ci : cache.getItems()) {
-            Item item = itemMap.get(ci.getItemId());
+        for (MapCachedItem cachedItem : cache.getItems()) {
+            Item item = itemMap.get(cachedItem.getItemId());
             itemVos.add(MapCachedItemVo.builder()
-                    .cachedItemId(ci.getCachedItemId())
-                    .itemId(ci.getItemId())
+                    .cachedItemId(cachedItem.getCachedItemId())
+                    .itemId(cachedItem.getItemId())
                     .itemName(item != null ? item.getName() : null)
                     .itemIcon(item != null ? item.getIcon() : null)
                     .shapeType(item != null ? item.getShapeType() : null)
-                    .count(ci.getCount())
+                    .count(cachedItem.getCount())
                     .build());
         }
 
@@ -91,28 +87,22 @@ public class ItemPickupProcessor implements MessageProcessor {
         return MessageType.ITEM_PICKUP;
     }
 
-    /**
-     * 战斗宝箱等：首次开箱时对 pendingItemConfig 做一次 roll 并写入 items，再清空待解析字段。
-     */
-    private void resolvePendingLootIfNeeded(MapLootCache cache, SessionState state) {
-        synchronized (cache) {
-            String pending = cache.getPendingItemConfig();
-            if (pending == null || pending.isBlank()) {
-                return;
-            }
-            var drops = dropRollService.parseAndRoll(pending);
-            cache.setPendingItemConfig(null);
-            String mapCacheId = cache.getMapCacheId();
-            List<MapCachedItem> list = new ArrayList<>();
-            for (int i = 0; i < drops.size(); i++) {
-                var d = drops.get(i);
-                list.add(new MapCachedItem(
-                        state.nextCachedItemId(mapCacheId, i),
-                        d.getItemId(),
-                        d.getCount()));
-            }
-            cache.setItems(list);
+    private void resolvePendingLootIfNeeded(Long userId, MapLootCache cache) {
+        String pending = cache.getPendingItemConfig();
+        if (pending == null || pending.isBlank()) {
+            return;
         }
+        var drops = dropRollService.parseAndRoll(pending);
+        cache.setPendingItemConfig(null);
+        List<MapCachedItem> items = new ArrayList<>();
+        for (var drop : drops) {
+            items.add(new MapCachedItem(
+                    mapLootCacheService.nextCachedItemId(),
+                    drop.getItemId(),
+                    drop.getCount()));
+        }
+        cache.setItems(items);
+        mapLootCacheService.saveLoot(userId, cache);
     }
 
     private void sendFail(PlayerSession session, String message) {

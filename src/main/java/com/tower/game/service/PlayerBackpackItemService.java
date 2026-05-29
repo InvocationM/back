@@ -2,6 +2,7 @@ package com.tower.game.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.tower.game.common.dto.BackpackMoveRequest;
+import com.tower.game.common.dto.BackpackMoveResult;
 import com.tower.game.common.dto.map.MapCachedItem;
 import com.tower.game.common.enums.BackpackMoveType;
 import com.tower.game.common.enums.ItemShapeType;
@@ -31,27 +32,34 @@ public class PlayerBackpackItemService {
     private final PlayerBackpackSlotService playerBackpackSlotService;
     private final BackpackUnlockOrderService backpackUnlockOrderService;
     private final ItemService itemService;
+    private final MapLootCacheService mapLootCacheService;
 
     /**
      * 统一移动入口，按 moveType 分发
      */
     @Transactional(rollbackFor = Exception.class)
-    public void move(Long playerId, SessionState state, BackpackMoveRequest request) {
-        switch (request.getMoveType()) {
+    public BackpackMoveResult move(Long playerId, SessionState state, BackpackMoveRequest request) {
+        return switch (request.getMoveType()) {
             case MAP_TO_BACKPACK -> moveFromMap(playerId, state, request);
-            case BACKPACK_TO_BACKPACK -> moveInBackpack(playerId, request);
-            case BACKPACK_TO_MAP -> moveToMap(playerId, state, request);
-        }
+            case BACKPACK_TO_BACKPACK -> {
+                moveInBackpack(playerId, request);
+                yield BackpackMoveResult.none();
+            }
+            case BACKPACK_TO_MAP -> {
+                moveToMap(playerId, state, request);
+                yield BackpackMoveResult.none();
+            }
+        };
     }
 
     /**
      * 地图缓存 → 背包
      */
-    private void moveFromMap(Long playerId, SessionState state, BackpackMoveRequest request) {
+    private BackpackMoveResult moveFromMap(Long playerId, SessionState state, BackpackMoveRequest request) {
         if (request.getCachedItemId() == null) throw new BusinessException("cachedItemId 不能为空");
         requireTarget(request);
 
-        MapCachedItem cached = state.findCachedItem(request.getCachedItemId());
+        MapCachedItem cached = mapLootCacheService.findCachedItem(playerId, request.getCachedItemId());
         if (cached == null) throw new BusinessException("地图物品不存在或已被拾取");
 
         Item item = itemService.getById(cached.getItemId());
@@ -60,7 +68,12 @@ public class PlayerBackpackItemService {
         placeIntoBackpack(playerId, request.getSlotIndex(), request.getGridRow(), request.getGridCol(),
                 item, cached.getCount(), null);
 
-        state.removeCachedItem(request.getCachedItemId());
+        MapLootCacheService.RemoveCachedItemResult removed =
+                mapLootCacheService.removeCachedItemWithResult(playerId, request.getCachedItemId());
+        if (removed != null && removed.cacheCleared()) {
+            return BackpackMoveResult.mapLootCleared(removed.mapCacheId(), removed.cellX(), removed.cellY());
+        }
+        return BackpackMoveResult.none();
     }
 
     /**
@@ -121,7 +134,8 @@ public class PlayerBackpackItemService {
         if (placement == null || !placement.getPlayerId().equals(playerId))
             throw new BusinessException("背包物品不存在");
 
-        state.addItemToMap(placement.getItemId(), placement.getCount());
+        mapLootCacheService.addItemAtCell(playerId, state.getCellX(), state.getCellY(),
+                placement.getItemId(), placement.getCount());
         playerBackpackItemMapper.deleteById(placement.getId());
     }
 

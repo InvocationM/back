@@ -12,6 +12,7 @@ import com.tower.game.server.processor.MessageProcessorRegistry;
 import com.tower.game.server.session.PlayerSession;
 import com.tower.game.server.session.SessionManager;
 import com.tower.game.service.AuthTokenService;
+import com.tower.game.service.BigMapRunRedisService;
 import com.tower.game.service.PlayerAttributeService;
 import com.tower.game.util.JsonUtil;
 import jakarta.annotation.PostConstruct;
@@ -106,6 +107,9 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     @Autowired
     private AuthTokenService authTokenService;
 
+    @Autowired
+    private BigMapRunRedisService bigMapRunRedisService;
+
     @PostConstruct
     public void startMonitor() {
         monitorScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
@@ -159,9 +163,25 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         }
 
         PlayerSession playerSession = sessionManager.createSession(user.getUserId(), user.getUsername(), attr, session);
+        restoreRunMirror(playerSession);
         log.info("Created user session: sessionId={}, userId={}, username={}",
                 playerSession.getSessionId(), user.getUserId(), user.getUsername());
         sendWelcomeMessage(playerSession);
+    }
+
+    private void restoreRunMirror(PlayerSession playerSession) {
+        bigMapRunRedisService.getRun(playerSession.getUserId()).ifPresent(run -> {
+            if (run.getCurrentMapId() != null) {
+                playerSession.setMapId(run.getCurrentMapId());
+            }
+            if (run.getCellX() != null && run.getCellY() != null) {
+                playerSession.setCellX(run.getCellX());
+                playerSession.setCellY(run.getCellY());
+            }
+            if (run.getHp() != null) {
+                playerSession.setHp(run.getHp());
+            }
+        });
     }
 
     @Override

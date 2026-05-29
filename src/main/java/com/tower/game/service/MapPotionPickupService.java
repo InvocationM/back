@@ -7,9 +7,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * 从地图 JSON 格子拾取可入包物品（钥匙 type=7、血瓶 type=9），入默认背包，同步会话与 Redis。
- */
 @Service
 @RequiredArgsConstructor
 public class MapPotionPickupService {
@@ -28,8 +25,7 @@ public class MapPotionPickupService {
         if (!session.hasPosition()) throw new BusinessException("未在有效地图位置");
 
         int mapId = session.getMapId();
-        ensureSessionMapLoaded(session, mapId);
-        String mapData = session.getCurrentMapData();
+        String mapData = requireMapJson(session, mapId);
 
         int px = session.getCellX();
         int py = session.getCellY();
@@ -42,11 +38,11 @@ public class MapPotionPickupService {
             throw new BusinessException("目标格超出地图范围");
         }
 
-        int[] ev = mapWalkableService.getCellEvent(mapId, cellX, cellY, mapData);
-        if (ev == null) {
+        int[] event = mapWalkableService.getCellEvent(mapId, cellX, cellY, mapData);
+        if (event == null) {
             throw new BusinessException("该格没有可拾取物品");
         }
-        int mapEventType = ev[0];
+        int mapEventType = event[0];
         if (mapEventType != MapWalkableService.EVENT_TYPE_KEY
                 && mapEventType != MapWalkableService.EVENT_TYPE_BLOOD_POTION) {
             throw new BusinessException("该格没有可拾取物品");
@@ -62,25 +58,20 @@ public class MapPotionPickupService {
                 ? ItemService.ITEM_TYPE_KEY
                 : ItemService.ITEM_TYPE_BLOOD_POTION;
         if (item.getType() == null || item.getType() != expectedItemType) {
-            if (mapEventType == MapWalkableService.EVENT_TYPE_KEY) {
-                throw new BusinessException("地图配置的物品不是钥匙");
-            }
-            throw new BusinessException("地图配置的物品不是血瓶");
+            throw new BusinessException(mapEventType == MapWalkableService.EVENT_TYPE_KEY
+                    ? "地图配置的物品不是钥匙"
+                    : "地图配置的物品不是血瓶");
         }
 
         playerBackpackItemService.autoPlaceInDefaultBackpack(playerId, item, parsed.count());
-
-        session.setCurrentMapData(mapId, parsed.newMapJson());
         sessionMapRedisService.saveMapJson(playerId, mapId, parsed.newMapJson());
     }
 
-    private void ensureSessionMapLoaded(PlayerSession session, int mapId) {
-        if (session.hasCurrentMapDataFor(mapId)) return;
+    private String requireMapJson(PlayerSession session, int mapId) {
         String json = sessionMapRedisService.getMapJson(session.getUserId(), mapId);
-        if (json != null && !json.isBlank()) {
-            session.setCurrentMapData(mapId, json);
-            return;
+        if (json == null || json.isBlank()) {
+            throw new BusinessException(500, "地图缓存不存在，请先通过地图接口加载 mapId=" + mapId);
         }
-        throw new BusinessException(500, "地图缓存不存在，请先通过地图接口加载 mapId=" + mapId);
+        return json;
     }
 }

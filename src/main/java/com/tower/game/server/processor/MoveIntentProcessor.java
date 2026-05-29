@@ -2,6 +2,7 @@ package com.tower.game.server.processor;
 
 import com.tower.game.common.constant.MessageType;
 import com.tower.game.common.dto.bigmap.BigMapRunState;
+import com.tower.game.common.exception.BusinessException;
 import com.tower.game.server.session.PlayerSession;
 import com.tower.game.service.BigMapRunRedisService;
 import com.tower.game.service.MapPathService;
@@ -15,36 +16,17 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * 移动意图处理器（方案 A）：客户端发 targetX/targetY/seqId，服务端只校验「移动到 target 格」的合法性，
- * 更新权威坐标并返回 SUCCESS 或 400 失败；不再因遇怪/遇宝箱返回 INTERRUPTED。
- */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class MoveIntentProcessor implements MessageProcessor {
 
-    private static final int DEFAULT_MAP_ID = 1001;
     private static final String STATUS_SUCCESS = "SUCCESS";
 
     private final MapWalkableService mapWalkableService;
     private final MapPathService mapPathService;
     private final SessionMapRedisService sessionMapRedisService;
     private final BigMapRunRedisService bigMapRunRedisService;
-
-    /**
-     * 确保 Session 中已加载该 mapId 的地图数据。
-     * 查找顺序：Session 内存 → Redis 缓存 → 报错（不查库）。
-     */
-    private void ensureSessionMapLoaded(PlayerSession session, int mapId) {
-        if (session.hasCurrentMapDataFor(mapId)) return;
-        String json = sessionMapRedisService.getMapJson(session.getUserId(), mapId);
-        if (json != null && !json.isBlank()) {
-            session.setCurrentMapData(mapId, json);
-            return;
-        }
-        throw new com.tower.game.common.exception.BusinessException(500, "地图缓存不存在，请先通过地图接口加载 mapId=" + mapId);
-    }
 
     @Override
     public void handle(PlayerSession session, Object message) {
@@ -58,46 +40,21 @@ public class MoveIntentProcessor implements MessageProcessor {
         Integer targetX = getInt(msg, "targetX");
         Integer targetY = getInt(msg, "targetY");
         Integer seqId = getInt(msg, "seqId");
+        Integer mapIdParam = getInt(msg, "mapId");
 
         if (targetX == null || targetY == null) {
             sendFail(session, "缺少 targetX 或 targetY", null, null, seqId);
             return;
         }
 
-        Integer mapIdParam = getInt(msg, "mapId");
+        BigMapRunState run = bigMapRunRedisService.getRun(session.getUserId()).orElse(null);
+        if (run == null || run.getLayerMapIds() == null || run.getLayerMapIds().isEmpty()) {
+            sendFail(session, "请先调用 POST /api/big-map/start 开始章节", null, null, seqId);
+            return;
+        }
 
         if (!session.hasPosition()) {
-            if (mapIdParam == null) {
-                sendFail(session, "首次进图请指定 mapId", null, null, seqId);
-                return;
-            }
-            int mapId = mapIdParam;
-            BigMapRunState run = bigMapRunRedisService.getRun(session.getUserId()).orElse(null);
-            if (run == null || run.getLayerMapIds() == null || run.getLayerMapIds().isEmpty()) {
-                sendFail(session, "请先调用 POST /api/big-map/start 开始章节", null, null, seqId);
-                return;
-            }
-            int li = run.getLayerIndex();
-            if (li < 0 || li >= run.getLayerMapIds().size()) {
-                sendFail(session, "章节进度异常", null, null, seqId);
-                return;
-            }
-            int expectedMapId = run.getLayerMapIds().get(li);
-            if (mapId != expectedMapId) {
-                sendFail(session, "mapId 与当前章节层不一致，期望 " + expectedMapId, null, null, seqId);
-                return;
-            }
-            ensureSessionMapLoaded(session, mapId);
-            String mapData = session.getCurrentMapData();
-            int[] entrance = mapWalkableService.findEntrance(mapId, mapData);
-            Integer prevMapId = session.getMapId();
-            if (prevMapId != null && !prevMapId.equals(mapId)) {
-                sessionMapRedisService.deleteMapJson(session.getUserId(), prevMapId);
-            }
-            session.setMapId(mapId);
-            session.setCellX(entrance[0]);
-            session.setCellY(entrance[1]);
-            sendSuccess(session, entrance[0], entrance[1], seqId, List.of());
+            handleFirstEnter(session, run, mapIdParam, seqId);
             return;
         }
 
@@ -105,26 +62,24 @@ public class MoveIntentProcessor implements MessageProcessor {
         int fromY = session.getCellY();
         Integer sessionMapId = session.getMapId();
         if (sessionMapId == null) {
-            sessionMapId = DEFAULT_MAP_ID;
-        }
-
-        if (mapIdParam != null && session.getMapId() != null && !mapIdParam.equals(session.getMapId())) {
-            sendFail(session, "切换小地图请使用出口协议 type=5010 (BIG_MAP_USE_EXIT)", fromX, fromY, seqId);
+            sendFail(session, "当前无地图", fromX, fromY, seqId);
             return;
         }
 
-        ensureSessionMapLoaded(session, sessionMapId);
-        String mapData = session.getCurrentMapData();
+        if (mapIdParam != null && !mapIdParam.equals(sessionMapId)) {
+            sendFail(session, "切换小地图请使用出口协议 type=5010", fromX, fromY, seqId);
+            return;
+        }
 
+        String mapData = requireMapJson(session.getUserId(), sessionMapId);
         int[] size = mapWalkableService.getMapSize(sessionMapId, mapData);
-        int width = size[0], height = size[1];
-        if (targetX < 0 || targetX >= width || targetY < 0 || targetY >= height) {
+        if (targetX < 0 || targetX >= size[0] || targetY < 0 || targetY >= size[1]) {
             sendFail(session, "目标格超出范围", fromX, fromY, seqId);
             return;
         }
 
         if (targetX == fromX && targetY == fromY) {
-            sendSuccess(session, fromX, fromY, seqId, List.of());
+            sendSuccess(session, fromX, fromY, seqId);
             return;
         }
 
@@ -135,22 +90,61 @@ public class MoveIntentProcessor implements MessageProcessor {
         }
 
         int[] lastCell = path.get(path.size() - 1);
-        int lastValidX = lastCell[0];
-        int lastValidY = lastCell[1];
-        session.setCellX(lastValidX);
-        session.setCellY(lastValidY);
-        sendSuccess(session, lastValidX, lastValidY, seqId, List.of());
-        log.debug("移动完成: from=({},{}) to=({},{})", fromX, fromY, lastValidX, lastValidY);
+        updatePosition(session, run, sessionMapId, lastCell[0], lastCell[1]);
+        sendSuccess(session, lastCell[0], lastCell[1], seqId);
+        log.debug("移动完成: userId={} mapId={} from=({},{}) to=({},{})",
+                session.getUserId(), sessionMapId, fromX, fromY, lastCell[0], lastCell[1]);
     }
 
-    private void sendSuccess(PlayerSession session, int finalX, int finalY, Integer seqId, List<Map<String, Object>> events) {
+    private void handleFirstEnter(PlayerSession session, BigMapRunState run, Integer mapIdParam, Integer seqId) {
+        if (mapIdParam == null) {
+            sendFail(session, "首次进图请指定 mapId", null, null, seqId);
+            return;
+        }
+        int layerIndex = run.getLayerIndex();
+        if (layerIndex < 0 || layerIndex >= run.getLayerMapIds().size()) {
+            sendFail(session, "章节进度异常", null, null, seqId);
+            return;
+        }
+        int expectedMapId = run.getLayerMapIds().get(layerIndex);
+        if (mapIdParam != expectedMapId) {
+            sendFail(session, "mapId 与当前章节层不一致，期望 " + expectedMapId, null, null, seqId);
+            return;
+        }
+
+        String mapData = requireMapJson(session.getUserId(), mapIdParam);
+        int[] entrance = mapWalkableService.findEntrance(mapIdParam, mapData);
+        updatePosition(session, run, mapIdParam, entrance[0], entrance[1]);
+        sendSuccess(session, entrance[0], entrance[1], seqId);
+    }
+
+    private String requireMapJson(Long userId, int mapId) {
+        String json = sessionMapRedisService.getMapJson(userId, mapId);
+        if (json == null || json.isBlank()) {
+            throw new BusinessException(500, "地图缓存不存在，请先通过地图接口加载 mapId=" + mapId);
+        }
+        return json;
+    }
+
+    private void updatePosition(PlayerSession session, BigMapRunState run, int mapId, int cellX, int cellY) {
+        session.setMapId(mapId);
+        session.setCellX(cellX);
+        session.setCellY(cellY);
+        run.setCurrentMapId(mapId);
+        run.setCellX(cellX);
+        run.setCellY(cellY);
+        run.setHp(session.getHp());
+        bigMapRunRedisService.saveRun(session.getUserId(), run);
+    }
+
+    private void sendSuccess(PlayerSession session, int finalX, int finalY, Integer seqId) {
         Map<String, Object> body = new HashMap<>();
         body.put("type", MessageType.MOVE_INTENT);
         body.put("code", 200);
         body.put("status", STATUS_SUCCESS);
         body.put("finalX", finalX);
         body.put("finalY", finalY);
-        body.put("events", events != null ? events : List.of());
+        body.put("events", List.of());
         if (seqId != null) body.put("seqId", seqId);
         session.sendMessage(body);
     }
@@ -168,21 +162,17 @@ public class MoveIntentProcessor implements MessageProcessor {
         session.sendMessage(fail);
     }
 
-    private void sendFail(PlayerSession session, String message, int correctX, int correctY, Integer seqId) {
-        sendFail(session, message, Integer.valueOf(correctX), Integer.valueOf(correctY), seqId);
-    }
-
     @Override
     public int getMessageType() {
         return MessageType.MOVE_INTENT;
     }
 
     private static Integer getInt(Map<String, Object> map, String key) {
-        Object v = map.get(key);
-        if (v == null) return null;
-        if (v instanceof Number) return ((Number) v).intValue();
+        Object value = map.get(key);
+        if (value == null) return null;
+        if (value instanceof Number n) return n.intValue();
         try {
-            return Integer.parseInt(v.toString());
+            return Integer.parseInt(value.toString());
         } catch (NumberFormatException e) {
             return null;
         }

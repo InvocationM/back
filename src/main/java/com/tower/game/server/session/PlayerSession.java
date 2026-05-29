@@ -15,9 +15,6 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
-/**
- * 玩家会话：连接相关留在本机，状态委托给可序列化的 SessionState（便于后续扩展 Redis 等）
- */
 @Slf4j
 public class PlayerSession {
 
@@ -28,10 +25,9 @@ public class PlayerSession {
     private final WebSocketSession webSocketSession;
 
     public PlayerSession(Long userId, String username, PlayerAttribute attr, WebSocketSession webSocketSession) {
-        String sessionId = generateSessionId();
         long now = System.currentTimeMillis();
         this.state = SessionState.builder()
-                .sessionId(sessionId)
+                .sessionId(generateSessionId())
                 .userId(userId)
                 .username(username)
                 .gameStatus(GameStatus.IDLE)
@@ -59,8 +55,6 @@ public class PlayerSession {
         return "session_" + SESSION_ID_GENERATOR.getAndIncrement() + "_" + System.currentTimeMillis();
     }
 
-    // ---------- 状态读写：委托给 SessionState ----------
-
     public String getSessionId() { return state.getSessionId(); }
     public Long getUserId() { return state.getUserId(); }
     public String getUsername() { return state.getUsername(); }
@@ -81,47 +75,18 @@ public class PlayerSession {
     public int getReflect() { return state.getReflect(); }
     public String getCombatName() { return state.getName(); }
     public String getCombatIcon() { return state.getIcon(); }
+    public WebSocketSession getWebSocketSession() { return webSocketSession; }
 
     public void setHp(int hp) { state.setHp(hp); }
     public void setGameStatus(GameStatus gameStatus) { state.setGameStatus(gameStatus); }
-    public void setMapId(Integer mapId) {
-        if (mapId != null && state.getMapId() != null && !mapId.equals(state.getMapId())) {
-            state.clearCurrentMapData();
-        }
-        state.setMapId(mapId);
-    }
+    public void setMapId(Integer mapId) { state.setMapId(mapId); }
     public void setCellX(int cellX) { state.setCellX(cellX); }
     public void setCellY(int cellY) { state.setCellY(cellY); }
 
-    /** 当前地图缓存：与 mapId 一致时有效 */
-    public Integer getCurrentMapId() { return state.getCurrentMapId(); }
-    public String getCurrentMapData() { return state.getCurrentMapData(); }
-    public void setCurrentMapData(Integer mapId, String data) {
-        state.setCurrentMapId(mapId);
-        state.setCurrentMapData(data);
-    }
-    public boolean hasCurrentMapDataFor(Integer mapId) { return state.hasCurrentMapDataFor(mapId); }
-    public void clearCurrentMapData() { state.clearCurrentMapData(); }
-
-    public void clearMapLootCaches() {
-        state.clearMapLootCaches();
-    }
-
-    public WebSocketSession getWebSocketSession() { return webSocketSession; }
-
-    /**
-     * 内存中的权威会话状态（含 {@link SessionState#getMapLootCaches()} 等）。
-     * 供服务端 Processor、Controller 读写开箱缓存、地图入包等；勿向不可信逻辑暴露可写引用。
-     * <p>注意：{@link #getState()} 快照未拷贝地图掉落缓存，不能用于 4001 / 地图拾取。
-     */
     public SessionState authoritativeState() {
         return state;
     }
 
-    /**
-     * 获取当前会话状态快照（副本，避免外部直接修改内部状态）。
-     * 未包含 {@code mapLootCaches} / {@code mapCacheIdSeq}，仅适合只读展示或非掉落相关逻辑。
-     */
     public SessionState getState() {
         return SessionState.builder()
                 .sessionId(state.getSessionId())
@@ -131,8 +96,6 @@ public class PlayerSession {
                 .mapId(state.getMapId())
                 .cellX(state.getCellX())
                 .cellY(state.getCellY())
-                .currentMapId(state.getCurrentMapId())
-                .currentMapData(state.getCurrentMapData())
                 .loginTime(state.getLoginTime())
                 .lastActiveTime(state.getLastActiveTime())
                 .hp(state.getHp())
@@ -149,54 +112,44 @@ public class PlayerSession {
                 .build();
     }
 
-    /**
-     * 更新会话状态（便于批量修改与后续扩展写回 Redis 等）
-     */
     public void updateState(Consumer<SessionState> updater) {
         updater.accept(state);
     }
 
-    /**
-     * 是否已设置地图位置（已进图）
-     */
     public boolean hasPosition() {
         return state.hasPosition();
     }
 
-    /**
-     * 更新最后活跃时间
-     */
     public void updateActiveTime() {
         state.setLastActiveTime(System.currentTimeMillis());
     }
 
-    // ---------- 连接相关 ----------
-
     public void sendMessage(Object message) {
-        if (webSocketSession != null && webSocketSession.isOpen()) {
-            try {
-                String json = message instanceof String
-                        ? (String) message
-                        : objectMapper.writeValueAsString(message);
-                webSocketSession.sendMessage(new TextMessage(json));
+        if (webSocketSession == null || !webSocketSession.isOpen()) {
+            return;
+        }
+        try {
+            String json = message instanceof String
+                    ? (String) message
+                    : objectMapper.writeValueAsString(message);
+            webSocketSession.sendMessage(new TextMessage(json));
 
-                int type = resolveMessageType(message, json);
-                String payloadLog = JsonUtil.truncateForLog(json);
-                if (type == MessageType.HEARTBEAT) {
-                    log.debug("WS 出参 [{}] sessionId={} userId={} {}", type, state.getSessionId(), state.getUserId(), payloadLog);
-                } else {
-                    log.info("WS 出参 [{}] sessionId={} userId={} {}", type, state.getSessionId(), state.getUserId(), payloadLog);
-                }
-            } catch (IOException e) {
-                log.error("发送消息失败: sessionId={}", state.getSessionId(), e);
+            int type = resolveMessageType(message, json);
+            String payloadLog = JsonUtil.truncateForLog(json);
+            if (type == MessageType.HEARTBEAT) {
+                log.debug("WS out [{}] sessionId={} userId={} {}", type, state.getSessionId(), state.getUserId(), payloadLog);
+            } else {
+                log.info("WS out [{}] sessionId={} userId={} {}", type, state.getSessionId(), state.getUserId(), payloadLog);
             }
+        } catch (IOException e) {
+            log.error("Send message failed sessionId={}", state.getSessionId(), e);
         }
     }
 
     private static int resolveMessageType(Object message, String json) {
-        if (message instanceof Map<?, ?> m) {
-            Object t = m.get("type");
-            if (t instanceof Number n) return n.intValue();
+        if (message instanceof Map<?, ?> map) {
+            Object type = map.get("type");
+            if (type instanceof Number number) return number.intValue();
         }
         try {
             JsonNode node = JsonUtil.parseObject(json);

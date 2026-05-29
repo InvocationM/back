@@ -3,6 +3,7 @@ package com.tower.game.api;
 import com.tower.game.common.auth.CurrentUserResolver;
 import com.tower.game.common.dto.BackpackItemPlacementVo;
 import com.tower.game.common.dto.BackpackMoveRequest;
+import com.tower.game.common.dto.BackpackMoveResult;
 import com.tower.game.common.dto.BackpackPickupMapCellRequest;
 import com.tower.game.common.dto.BackpackSlotVo;
 import com.tower.game.common.dto.BackpackUnlockRequest;
@@ -87,12 +88,12 @@ public class BackpackController {
     }
 
     @PostMapping("/move")
-    public ApiResponse<Void> move(@Valid @RequestBody BackpackMoveRequest request, HttpServletRequest httpRequest) {
+    public ApiResponse<BackpackMoveResult> move(@Valid @RequestBody BackpackMoveRequest request, HttpServletRequest httpRequest) {
         long playerId = currentUserResolver.requireUser(httpRequest).getUserId();
         PlayerSession session = sessionManager.getSessionByUserId(playerId);
         if (session == null) throw new BusinessException("玩家未在线");
-        playerBackpackItemService.move(playerId, session.authoritativeState(), request);
-        return ApiResponse.success(null);
+        BackpackMoveResult result = playerBackpackItemService.move(playerId, session.authoritativeState(), request);
+        return ApiResponse.success(result);
     }
 
     @PostMapping("/pickupMapCell")

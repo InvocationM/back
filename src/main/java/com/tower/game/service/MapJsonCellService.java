@@ -23,6 +23,8 @@ public class MapJsonCellService {
 
     public record MapDoorOpenResult(String newMapJson) {}
 
+    public record MapEventClearResult(String newMapJson) {}
+
     /**
      * 校验 (x,y) 格首事件为指定 type（如钥匙 7、血瓶 9），替换为空地 type=2。
      */
@@ -127,6 +129,50 @@ public class MapJsonCellService {
             throw e;
         } catch (Exception e) {
             throw new BusinessException("解析或修改地图 JSON 失败");
+        }
+    }
+
+    public MapEventClearResult clearEventFromCell(String mapJson, int x, int y, int expectedEventType, int expectedEventId) {
+        if (mapJson == null || mapJson.isBlank()) {
+            throw new BusinessException("map data is empty");
+        }
+        try {
+            ObjectNode root = (ObjectNode) objectMapper.readTree(mapJson);
+            JsonNode cells = root.get("cells");
+            if (cells == null || !cells.isArray()) {
+                throw new BusinessException("map cells missing");
+            }
+            for (int i = 0; i < cells.size(); i++) {
+                JsonNode cell = cells.get(i);
+                if (cell == null || !cell.isObject()) continue;
+                if (cell.path("x").asInt() != x || cell.path("y").asInt() != y) continue;
+
+                JsonNode events = cell.get("events");
+                if (events == null || !events.isArray() || events.size() == 0) {
+                    throw new BusinessException("cell has no map event");
+                }
+                JsonNode first = events.get(0);
+                int type = first.path("type").asInt(0);
+                int id = first.path("id").asInt(0);
+                if (type != expectedEventType || id != expectedEventId) {
+                    throw new BusinessException("cell event does not match expected event");
+                }
+
+                ArrayNode newEvents = objectMapper.createArrayNode();
+                ObjectNode emptyEv = objectMapper.createObjectNode();
+                emptyEv.put("type", EVENT_TYPE_EMPTY);
+                emptyEv.put("id", 0);
+                emptyEv.put("weight", 100);
+                newEvents.add(emptyEv);
+                ((ObjectNode) cell).set("events", newEvents);
+
+                return new MapEventClearResult(objectMapper.writeValueAsString(root));
+            }
+            throw new BusinessException("cell has no map event");
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new BusinessException("failed to parse or update map JSON");
         }
     }
 

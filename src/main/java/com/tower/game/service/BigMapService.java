@@ -85,9 +85,12 @@ public class BigMapService {
         BigMapRunState run = BigMapRunState.builder()
                 .bigMapId(bigMapId)
                 .layerIndex(0)
+                .currentMapId(layerMapIds.get(0))
+                .cellX(null)
+                .cellY(null)
                 .layerMapIds(layerMapIds)
                 .build();
-        bigMapRunRedisService.saveRun(userId, run);
+        bigMapRunRedisService.startNewRun(userId, run);
 
         return new BigMapVO(chapter.getId(), chapter.getName(), layerVOList);
     }

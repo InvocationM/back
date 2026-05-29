@@ -8,18 +8,20 @@ import lombok.NoArgsConstructor;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * 大章节闯关进度（存 Redis），与 {@link BigMapVO} 分离。
- */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class BigMapRunState {
 
+    private String runId;
     private Integer bigMapId;
-    /** 当前所在层下标，0-based，对应 layerMapIds 中正在游玩的层 */
     private int layerIndex;
+    private Integer currentMapId;
+    private Integer cellX;
+    private Integer cellY;
+    private Integer hp;
+
     @Builder.Default
     private List<Integer> layerMapIds = new ArrayList<>();
 }
