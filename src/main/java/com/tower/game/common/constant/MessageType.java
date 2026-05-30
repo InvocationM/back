@@ -21,6 +21,7 @@ public class MessageType {
     // 道具相关
     public static final int ITEM_PICKUP = 4001;
     public static final int ITEM_USE = 4002;
+    public static final int OPEN_CHEST = 4003;
     
     /** 站在出口格进入大章节下一层小地图（需先 HTTP 缓存下一层地图） */
     public static final int BIG_MAP_USE_EXIT = 5010;

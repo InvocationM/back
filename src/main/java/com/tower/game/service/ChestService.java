@@ -26,4 +26,11 @@ public class ChestService {
         }
         return chestMapper.selectBatchIds(ids);
     }
+
+    public Chest getById(Integer id) {
+        if (id == null) {
+            return null;
+        }
+        return chestMapper.selectById(id);
+    }
 }
