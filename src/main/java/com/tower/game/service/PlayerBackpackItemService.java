@@ -45,10 +45,7 @@ public class PlayerBackpackItemService {
                 moveInBackpack(playerId, request);
                 yield BackpackMoveResult.none();
             }
-            case BACKPACK_TO_MAP -> {
-                moveToMap(playerId, state, request);
-                yield BackpackMoveResult.none();
-            }
+            case BACKPACK_TO_MAP -> moveToMap(playerId, state, request);
         };
     }
 
@@ -127,16 +124,23 @@ public class PlayerBackpackItemService {
     /**
      * 背包 → 地图缓存
      */
-    private void moveToMap(Long playerId, SessionState state, BackpackMoveRequest request) {
+    private BackpackMoveResult moveToMap(Long playerId, SessionState state, BackpackMoveRequest request) {
         if (request.getPlacementId() == null) throw new BusinessException("placementId 不能为空");
 
         PlayerBackpackItem placement = playerBackpackItemMapper.selectById(request.getPlacementId());
         if (placement == null || !placement.getPlayerId().equals(playerId))
             throw new BusinessException("背包物品不存在");
 
-        mapLootCacheService.addItemAtCell(playerId, state.getCellX(), state.getCellY(),
+        MapLootCacheService.AddCachedItemResult added = mapLootCacheService.addItemAtCellWithResult(
+                playerId, state.getCellX(), state.getCellY(),
                 placement.getItemId(), placement.getCount());
         playerBackpackItemMapper.deleteById(placement.getId());
+        return BackpackMoveResult.mapItemAdded(
+                added.mapCacheId(),
+                added.cachedItemId(),
+                added.cellX(),
+                added.cellY(),
+                added.sourceType());
     }
 
     /**

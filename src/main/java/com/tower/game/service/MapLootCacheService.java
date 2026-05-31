@@ -21,6 +21,7 @@ import java.util.UUID;
 public class MapLootCacheService {
 
     private static final String KEY_PREFIX = "tower:loot:";
+    public static final String SOURCE_TYPE_DROP = "DROP";
 
     private final StringRedisTemplate stringRedisTemplate;
     private final BigMapRunRedisService bigMapRunRedisService;
@@ -109,16 +110,21 @@ public class MapLootCacheService {
     }
 
     public String addItemAtCell(Long userId, int cellX, int cellY, int itemId, int count) {
+        AddCachedItemResult result = addItemAtCellWithResult(userId, cellX, cellY, itemId, count);
+        return result != null ? result.cachedItemId() : null;
+    }
+
+    public AddCachedItemResult addItemAtCellWithResult(Long userId, int cellX, int cellY, int itemId, int count) {
         Map<String, MapLootCache> caches = load(userId);
         for (MapLootCache cache : caches.values()) {
-            if (cache.getCellX() == cellX && cache.getCellY() == cellY && "DROP".equals(cache.getSourceType())) {
+            if (cache.getCellX() == cellX && cache.getCellY() == cellY && SOURCE_TYPE_DROP.equals(cache.getSourceType())) {
                 if (cache.getItems() == null) {
                     cache.setItems(new ArrayList<>());
                 }
                 String cachedItemId = newId("item");
                 cache.getItems().add(new MapCachedItem(cachedItemId, itemId, count));
                 save(userId, caches);
-                return cachedItemId;
+                return new AddCachedItemResult(cache.getMapCacheId(), cachedItemId, cellX, cellY, cache.getSourceType());
             }
         }
 
@@ -126,13 +132,13 @@ public class MapLootCacheService {
         cache.setMapCacheId(newId("loot"));
         cache.setCellX(cellX);
         cache.setCellY(cellY);
-        cache.setSourceType("DROP");
+        cache.setSourceType(SOURCE_TYPE_DROP);
         cache.setItems(new ArrayList<>());
         String cachedItemId = newId("item");
         cache.getItems().add(new MapCachedItem(cachedItemId, itemId, count));
         caches.put(cache.getMapCacheId(), cache);
         save(userId, caches);
-        return cachedItemId;
+        return new AddCachedItemResult(cache.getMapCacheId(), cachedItemId, cellX, cellY, cache.getSourceType());
     }
 
     public String nextCachedItemId() {
@@ -192,4 +198,11 @@ public class MapLootCacheService {
             String mapCacheId,
             int cellX,
             int cellY) {}
+
+    public record AddCachedItemResult(
+            String mapCacheId,
+            String cachedItemId,
+            int cellX,
+            int cellY,
+            String sourceType) {}
 }

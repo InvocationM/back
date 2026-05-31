@@ -119,7 +119,7 @@ public class BattleStartProcessor implements MessageProcessor {
                 MapLootCache lootCache = new MapLootCache();
                 lootCache.setCellX(cellX);
                 lootCache.setCellY(cellY);
-                lootCache.setSourceType("CHEST");
+                lootCache.setSourceType("CORPSE");
                 lootCache.setSourceId(monsterId);
                 lootCache.setPendingItemConfig(monster.getItem());
                 mapCacheId = mapLootCacheService.createLoot(session.getUserId(), lootCache);
@@ -151,7 +151,7 @@ public class BattleStartProcessor implements MessageProcessor {
         data.put("rewardChest", mapCacheId == null ? null : Map.of(
                 "mapCacheId", mapCacheId,
                 "cell", Map.of("x", cellX, "y", cellY),
-                "sourceType", "CHEST"));
+                "sourceType", "CORPSE"));
         return data;
     }
 
