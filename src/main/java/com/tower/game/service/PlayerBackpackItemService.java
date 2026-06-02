@@ -55,7 +55,12 @@ public class PlayerBackpackItemService {
     private BackpackMoveResult moveFromMap(Long playerId, SessionState state, BackpackMoveRequest request) {
         if (request.getCachedItemId() == null) throw new BusinessException("cachedItemId 不能为空");
         requireTarget(request);
+        synchronized (mapItemLock(playerId, request.getCachedItemId())) {
+            return moveFromMapLocked(playerId, state, request);
+        }
+    }
 
+    private BackpackMoveResult moveFromMapLocked(Long playerId, SessionState state, BackpackMoveRequest request) {
         MapCachedItem cached = mapLootCacheService.findCachedItem(playerId, request.getCachedItemId());
         if (cached == null) throw new BusinessException("地图物品不存在或已被拾取");
 
@@ -71,6 +76,10 @@ public class PlayerBackpackItemService {
             return BackpackMoveResult.mapLootCleared(removed.mapCacheId(), removed.cellX(), removed.cellY());
         }
         return BackpackMoveResult.none();
+    }
+
+    private Object mapItemLock(Long playerId, String cachedItemId) {
+        return ("map-item:" + playerId + ":" + cachedItemId).intern();
     }
 
     /**

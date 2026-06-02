@@ -25,6 +25,12 @@ public class MapPotionPickupService {
         if (!session.hasPosition()) throw new BusinessException("未在有效地图位置");
 
         int mapId = session.getMapId();
+        synchronized (pickupLock(playerId, mapId, cellX, cellY)) {
+            pickupFromMapCellLocked(session, playerId, mapId, cellX, cellY);
+        }
+    }
+
+    private void pickupFromMapCellLocked(PlayerSession session, Long playerId, int mapId, int cellX, int cellY) {
         String mapData = requireMapJson(session, mapId);
 
         int px = session.getCellX();
@@ -65,6 +71,10 @@ public class MapPotionPickupService {
 
         playerBackpackItemService.autoPlaceInDefaultBackpack(playerId, item, parsed.count());
         sessionMapRedisService.saveMapJson(playerId, mapId, parsed.newMapJson());
+    }
+
+    private Object pickupLock(Long playerId, int mapId, int cellX, int cellY) {
+        return ("map-pickup:" + playerId + ":" + mapId + ":" + cellX + ":" + cellY).intern();
     }
 
     private String requireMapJson(PlayerSession session, int mapId) {
