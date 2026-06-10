@@ -7,6 +7,7 @@ import com.tower.game.common.dto.BackpackMoveResult;
 import com.tower.game.common.dto.BackpackPickupMapCellRequest;
 import com.tower.game.common.dto.BackpackSlotVo;
 import com.tower.game.common.dto.BackpackUnlockRequest;
+import com.tower.game.common.dto.bigmap.BigMapRunState;
 import com.tower.game.common.exception.BusinessException;
 import com.tower.game.common.response.ApiResponse;
 import com.tower.game.model.entity.BackpackUnlockOrder;
@@ -14,6 +15,8 @@ import com.tower.game.model.entity.Item;
 import com.tower.game.model.entity.PlayerBackpackItem;
 import com.tower.game.server.session.PlayerSession;
 import com.tower.game.server.session.SessionManager;
+import com.tower.game.server.session.SessionState;
+import com.tower.game.service.BigMapRunRedisService;
 import com.tower.game.service.ItemService;
 import com.tower.game.service.MapPotionPickupService;
 import com.tower.game.service.PlayerBackpackItemService;
@@ -42,6 +45,7 @@ public class BackpackController {
     private final SessionManager sessionManager;
     private final MapPotionPickupService mapPotionPickupService;
     private final CurrentUserResolver currentUserResolver;
+    private final BigMapRunRedisService bigMapRunRedisService;
 
     @PostMapping("/getBackpack")
     public ApiResponse<List<BackpackSlotVo>> getBackpack(HttpServletRequest httpRequest) {
@@ -90,18 +94,16 @@ public class BackpackController {
     @PostMapping("/move")
     public ApiResponse<BackpackMoveResult> move(@Valid @RequestBody BackpackMoveRequest request, HttpServletRequest httpRequest) {
         long playerId = currentUserResolver.requireUser(httpRequest).getUserId();
-        PlayerSession session = sessionManager.getSessionByUserId(playerId);
-        if (session == null) throw new BusinessException("玩家未在线");
-        BackpackMoveResult result = playerBackpackItemService.move(playerId, session.authoritativeState(), request);
+        SessionState state = resolveAuthoritativeState(playerId);
+        BackpackMoveResult result = playerBackpackItemService.move(playerId, state, request);
         return ApiResponse.success(result);
     }
 
     @PostMapping("/pickupMapCell")
     public ApiResponse<Void> pickupMapCell(@Valid @RequestBody BackpackPickupMapCellRequest request, HttpServletRequest httpRequest) {
         long playerId = currentUserResolver.requireUser(httpRequest).getUserId();
-        PlayerSession session = sessionManager.getSessionByUserId(playerId);
-        if (session == null) throw new BusinessException("玩家未在线");
-        mapPotionPickupService.pickupFromMapCell(session, request.getCellX(), request.getCellY());
+        SessionState state = resolveAuthoritativeState(playerId);
+        mapPotionPickupService.pickupFromMapCell(playerId, state, request.getCellX(), request.getCellY());
         return ApiResponse.success(null);
     }
 
@@ -110,5 +112,23 @@ public class BackpackController {
         long playerId = currentUserResolver.requireUser(httpRequest).getUserId();
         playerBackpackSlotService.unlockNext(playerId, request.getSlotIndex());
         return ApiResponse.success(null);
+    }
+
+    private SessionState resolveAuthoritativeState(long playerId) {
+        PlayerSession session = sessionManager.getSessionByUserId(playerId);
+        if (session != null) {
+            return session.authoritativeState();
+        }
+        BigMapRunState run = bigMapRunRedisService.requireRun(playerId);
+        if (run.getCurrentMapId() == null || run.getCellX() == null || run.getCellY() == null) {
+            throw new BusinessException("未在有效地图位置");
+        }
+        return SessionState.builder()
+                .userId(playerId)
+                .mapId(run.getCurrentMapId())
+                .cellX(run.getCellX())
+                .cellY(run.getCellY())
+                .hp(run.getHp() != null ? run.getHp() : 0)
+                .build();
     }
 }

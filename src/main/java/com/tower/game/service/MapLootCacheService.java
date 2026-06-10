@@ -151,8 +151,11 @@ public class MapLootCacheService {
         }
         try {
             stringRedisTemplate.delete(buildKey(userId));
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             log.warn("Redis clear loot failed userId={}", userId, e);
+            throw new BusinessException(500, "地图掉落缓存清理失败");
         }
     }
 
@@ -164,9 +167,11 @@ public class MapLootCacheService {
             }
             Map<String, MapLootCache> parsed = JsonUtil.parseObject(json, new TypeReference<Map<String, MapLootCache>>() {});
             return parsed != null ? parsed : new LinkedHashMap<>();
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             log.warn("Redis read loot failed userId={}", userId, e);
-            return new LinkedHashMap<>();
+            throw new BusinessException(500, "地图掉落缓存读取失败");
         }
     }
 
@@ -179,8 +184,11 @@ public class MapLootCacheService {
                 stringRedisTemplate.opsForValue().set(key, JsonUtil.toJsonString(caches), bigMapRunRedisService.ttl());
             }
             bigMapRunRedisService.touchRun(userId);
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             log.warn("Redis write loot failed userId={}", userId, e);
+            throw new BusinessException(500, "地图掉落缓存写入失败");
         }
     }
 

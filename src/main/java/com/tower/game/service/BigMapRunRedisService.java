@@ -37,7 +37,7 @@ public class BigMapRunRedisService {
             return Optional.ofNullable(JsonUtil.parseObject(json, BigMapRunState.class));
         } catch (Exception e) {
             log.warn("Redis read run failed userId={}", userId, e);
-            return Optional.empty();
+            throw new BusinessException(500, "章节运行态读取失败");
         }
     }
 
@@ -61,6 +61,7 @@ public class BigMapRunRedisService {
             stringRedisTemplate.opsForValue().set(runKey(userId), JsonUtil.toJsonString(state), TTL);
         } catch (Exception e) {
             log.warn("Redis write run failed userId={}", userId, e);
+            throw new BusinessException(500, "章节运行态写入失败");
         }
     }
 
@@ -73,6 +74,7 @@ public class BigMapRunRedisService {
             stringRedisTemplate.delete(runKey(userId));
         } catch (Exception e) {
             log.warn("Redis delete run failed userId={}", userId, e);
+            throw new BusinessException(500, "章节运行态删除失败");
         }
     }
 
@@ -96,6 +98,7 @@ public class BigMapRunRedisService {
             stringRedisTemplate.expire(runKey(userId), TTL);
         } catch (Exception e) {
             log.warn("Redis touch run failed userId={}", userId, e);
+            throw new BusinessException(500, "章节运行态续期失败");
         }
     }
 

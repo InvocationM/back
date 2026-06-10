@@ -3,6 +3,7 @@ package com.tower.game.service;
 import com.tower.game.common.exception.BusinessException;
 import com.tower.game.model.entity.Item;
 import com.tower.game.server.session.PlayerSession;
+import com.tower.game.server.session.SessionState;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,22 +20,27 @@ public class MapPotionPickupService {
 
     @Transactional(rollbackFor = Exception.class)
     public void pickupFromMapCell(PlayerSession session, int cellX, int cellY) {
-        Long playerId = session.getUserId();
-        if (playerId == null) throw new BusinessException("用户无效");
-        if (session.getMapId() == null) throw new BusinessException("未在地图中");
-        if (!session.hasPosition()) throw new BusinessException("未在有效地图位置");
+        if (session == null) throw new BusinessException("玩家未在线");
+        pickupFromMapCell(session.getUserId(), session.authoritativeState(), cellX, cellY);
+    }
 
-        int mapId = session.getMapId();
+    @Transactional(rollbackFor = Exception.class)
+    public void pickupFromMapCell(Long playerId, SessionState state, int cellX, int cellY) {
+        if (playerId == null) throw new BusinessException("用户无效");
+        if (state == null || state.getMapId() == null) throw new BusinessException("未在地图中");
+        if (!state.hasPosition()) throw new BusinessException("未在有效地图位置");
+
+        int mapId = state.getMapId();
         synchronized (pickupLock(playerId, mapId, cellX, cellY)) {
-            pickupFromMapCellLocked(session, playerId, mapId, cellX, cellY);
+            pickupFromMapCellLocked(playerId, state, mapId, cellX, cellY);
         }
     }
 
-    private void pickupFromMapCellLocked(PlayerSession session, Long playerId, int mapId, int cellX, int cellY) {
-        String mapData = requireMapJson(session, mapId);
+    private void pickupFromMapCellLocked(Long playerId, SessionState state, int mapId, int cellX, int cellY) {
+        String mapData = requireMapJson(playerId, mapId);
 
-        int px = session.getCellX();
-        int py = session.getCellY();
+        int px = state.getCellX();
+        int py = state.getCellY();
         if (Math.abs(px - cellX) + Math.abs(py - cellY) > 1) {
             throw new BusinessException("不在目标格相邻或同一格");
         }
@@ -77,8 +83,8 @@ public class MapPotionPickupService {
         return ("map-pickup:" + playerId + ":" + mapId + ":" + cellX + ":" + cellY).intern();
     }
 
-    private String requireMapJson(PlayerSession session, int mapId) {
-        String json = sessionMapRedisService.getMapJson(session.getUserId(), mapId);
+    private String requireMapJson(Long playerId, int mapId) {
+        String json = sessionMapRedisService.getMapJson(playerId, mapId);
         if (json == null || json.isBlank()) {
             throw new BusinessException(500, "地图缓存不存在，请先通过地图接口加载 mapId=" + mapId);
         }

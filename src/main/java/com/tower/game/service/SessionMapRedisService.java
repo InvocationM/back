@@ -1,5 +1,6 @@
 package com.tower.game.service;
 
+import com.tower.game.common.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -27,9 +28,11 @@ public class SessionMapRedisService {
                 bigMapRunRedisService.touchRun(userId);
             }
             return json;
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             log.warn("Redis read map failed userId={} mapId={}", userId, mapId, e);
-            return null;
+            throw new BusinessException(500, "地图缓存读取失败");
         }
     }
 
@@ -42,8 +45,11 @@ public class SessionMapRedisService {
             stringRedisTemplate.opsForValue().set(key, mapJson, bigMapRunRedisService.ttl());
             bigMapRunRedisService.touchRun(userId);
             log.debug("Redis write map key={}", key);
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             log.warn("Redis write map failed userId={} mapId={}", userId, mapId, e);
+            throw new BusinessException(500, "地图缓存写入失败");
         }
     }
 
@@ -56,6 +62,7 @@ public class SessionMapRedisService {
             stringRedisTemplate.delete(key);
         } catch (Exception e) {
             log.warn("Redis delete map failed userId={} mapId={}", userId, mapId, e);
+            throw new BusinessException(500, "地图缓存删除失败");
         }
     }
 

@@ -39,14 +39,16 @@ public class PlayerBackpackItemService {
      */
     @Transactional(rollbackFor = Exception.class)
     public BackpackMoveResult move(Long playerId, SessionState state, BackpackMoveRequest request) {
-        return switch (request.getMoveType()) {
-            case MAP_TO_BACKPACK -> moveFromMap(playerId, state, request);
-            case BACKPACK_TO_BACKPACK -> {
-                moveInBackpack(playerId, request);
-                yield BackpackMoveResult.none();
-            }
-            case BACKPACK_TO_MAP -> moveToMap(playerId, state, request);
-        };
+        synchronized (backpackLock(playerId)) {
+            return switch (request.getMoveType()) {
+                case MAP_TO_BACKPACK -> moveFromMap(playerId, state, request);
+                case BACKPACK_TO_BACKPACK -> {
+                    moveInBackpack(playerId, request);
+                    yield BackpackMoveResult.none();
+                }
+                case BACKPACK_TO_MAP -> moveToMap(playerId, state, request);
+            };
+        }
     }
 
     /**
@@ -80,6 +82,10 @@ public class PlayerBackpackItemService {
 
     private Object mapItemLock(Long playerId, String cachedItemId) {
         return ("map-item:" + playerId + ":" + cachedItemId).intern();
+    }
+
+    private Object backpackLock(Long playerId) {
+        return ("backpack:" + playerId).intern();
     }
 
     /**
@@ -157,6 +163,12 @@ public class PlayerBackpackItemService {
      */
     @Transactional(rollbackFor = Exception.class)
     public void autoPlaceInDefaultBackpack(Long playerId, Item item, int count) {
+        synchronized (backpackLock(playerId)) {
+            autoPlaceInDefaultBackpackLocked(playerId, item, count);
+        }
+    }
+
+    private void autoPlaceInDefaultBackpackLocked(Long playerId, Item item, int count) {
         validateItemConfig(item);
         if (count <= 0) throw new BusinessException("数量必须大于0");
         int slotIndex = 0;
@@ -327,6 +339,12 @@ public class PlayerBackpackItemService {
      */
     @Transactional(rollbackFor = Exception.class)
     public void consumeOneKeyOpeningDoor(Long playerId, int doorId) {
+        synchronized (backpackLock(playerId)) {
+            consumeOneKeyOpeningDoorLocked(playerId, doorId);
+        }
+    }
+
+    private void consumeOneKeyOpeningDoorLocked(Long playerId, int doorId) {
         List<PlayerBackpackItem> placements = listByPlayer(playerId);
         placements.sort(Comparator
                 .comparing(PlayerBackpackItem::getSlotIndex)
